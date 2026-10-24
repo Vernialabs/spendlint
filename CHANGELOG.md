@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.3 (2026-10-24)
 
 - Telemetry events are sent to Vernia's collector at `t.vernia.in`. It stores only the documented counts, never IP
   addresses. `SPENDLINT_TELEMETRY_URL=none` keeps events local; all existing opt-outs still apply and CI stays off.
