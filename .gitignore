@@ -1,0 +1,14 @@
+# python / build output (the compiled binary is attached to a release, not committed)
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+venv/
+.venv/
+# local app config
+.claude/
+*.egg-info/
+
+# local publishing notes, never published
+PUBLISH_CHECKLIST.md

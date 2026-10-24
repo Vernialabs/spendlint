@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "costlint"
+dynamic = ["version"]
+description = "Static cost-defect checks for LLM agent code (Python and TypeScript), with SARIF and GitHub Actions output."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Ishan Upadhyay" }]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["llm", "agents", "cost", "lint", "static-analysis", "prompt-caching"]
+classifiers = [
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Topic :: Software Development :: Quality Assurance",
+    # Blocks accidental uploads: PyPI rejects any package with this classifier. Remove it on purpose to publish.
+    "Private :: Do Not Upload",
+]
+
+[project.optional-dependencies]
+# Full YAML for .costlint.yml. Without it a built-in reader handles the flat subset the config uses.
+yaml = ["PyYAML>=5.1"]
+
+[project.scripts]
+costlint = "costlint.__main__:main"
+
+[tool.setuptools]
+packages = ["costlint"]
+
+[tool.setuptools.dynamic]
+version = { attr = "costlint.__version__" }
+
+[project.urls]
+Homepage = "https://github.com/ishan121028/costlint"
+Issues = "https://github.com/ishan121028/costlint/issues"

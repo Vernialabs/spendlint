@@ -1,0 +1,35 @@
+# Example workflow: copy to .github/workflows/costlint.yml in the repository you want checked.
+# Pin to a release tag or commit SHA of ishan121028/costlint.
+name: costlint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  costlint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # only needed for upload-sarif: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: costlint
+        id: costlint
+        uses: ishan121028/costlint@v0
+        with:
+          path: .
+          fail-on: none            # none | info | warning
+          diff-mode: auto          # pull requests: only lines the PR adds; pushes: whole repo
+          upload-sarif: 'false'    # 'true' sends results to the code scanning tab
+          telemetry: auto          # off in CI unless you opt in; see docs/telemetry.md
+
+      - name: Use the outputs
+        env:
+          FINDINGS: ${{ steps.costlint.outputs.findings-count }}
+        run: echo "costlint reported $FINDINGS finding(s)"

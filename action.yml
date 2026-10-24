@@ -1,0 +1,91 @@
+name: costlint
+description: Flag LLM cost defects (missing prompt caching, unbounded agent loops, prompt bloat) on the lines a pull request adds.
+author: ishan121028
+branding:
+  icon: dollar-sign
+  color: green
+
+inputs:
+  path:
+    description: Directory to scan, relative to the repository root.
+    default: .
+  rules:
+    description: Comma-separated rule ids to run (default all rules).
+    default: ''
+  min-confidence:
+    description: Drop findings below this confidence, 0 to 1 (default from .costlint.yml, else 0).
+    default: ''
+  fail-on:
+    description: Fail the step when a finding of this severity or higher remains. none, info or warning.
+    default: none
+  diff-mode:
+    description: >
+      auto (default): on pull_request events, report only lines the pull request adds, compared with the base branch.
+      on: always diff against diff-base. off: scan every file.
+    default: auto
+  diff-base:
+    description: Revision to diff against when diff-mode is on (default origin/<pull request base branch>).
+    default: ''
+  config:
+    description: Config file path relative to the repository root (default .costlint.yml/.yaml/.json in the scanned path).
+    default: ''
+  sarif-output:
+    description: Where to write the SARIF file (default $RUNNER_TEMP/costlint.sarif).
+    default: ''
+  upload-sarif:
+    description: Upload the SARIF file to GitHub code scanning (needs security-events write permission).
+    default: 'false'
+  telemetry:
+    description: >
+      auto (default): off in CI unless the COSTLINT_TELEMETRY=on environment variable is set. on or off: explicit choice.
+      Even when on, events go to a local log on the runner; nothing is sent unless COSTLINT_TELEMETRY_URL is set.
+      See docs/telemetry.md for exactly what an event contains.
+    default: auto
+
+outputs:
+  findings-count:
+    description: Number of findings reported (after diff, config and suppression filters).
+    value: ${{ steps.scan.outputs.findings-count }}
+  sarif-path:
+    description: Absolute path of the SARIF file written.
+    value: ${{ steps.scan.outputs.sarif-path }}
+  exit-code:
+    description: 0 clean, 1 findings at or above fail-on, 2 usage or internal error.
+    value: ${{ steps.scan.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install costlint from the action checkout
+      id: install
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/action/install.sh"
+
+    - name: Run costlint
+      id: scan
+      shell: bash
+      env:
+        COSTLINT_PYTHON: ${{ steps.install.outputs.python }}
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_RULES: ${{ inputs.rules }}
+        INPUT_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_DIFF_MODE: ${{ inputs.diff-mode }}
+        INPUT_DIFF_BASE: ${{ inputs.diff-base }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_SARIF_OUTPUT: ${{ inputs.sarif-output }}
+        INPUT_TELEMETRY: ${{ inputs.telemetry }}
+      run: bash "$GITHUB_ACTION_PATH/action/scan.sh"
+
+    - name: Upload SARIF to code scanning
+      if: ${{ inputs.upload-sarif == 'true' && steps.scan.outputs.sarif-path != '' }}
+      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370  # v4.39.1
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif-path }}
+        category: costlint
+
+    - name: Apply fail-on
+      shell: bash
+      env:
+        EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "${EXIT_CODE:-2}"
