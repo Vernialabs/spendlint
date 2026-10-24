@@ -1,16 +1,22 @@
 # spendlint
 
-Static checks for the code patterns that quietly inflate LLM bills in agent code: missing prompt caching,
-system prompts that change on every call, unbounded agent loops and retries, cost accounting that ignores
-cached tokens, and prompt bloat. Python and TypeScript/JavaScript. Pure Python, standard library only.
+**Catch the code that inflates your LLM bill, before it ships.**
 
-On a pull request it reports only the lines the pull request adds, as inline annotations, with a summary table
-and optional SARIF for code scanning. Your code never leaves the runner.
+spendlint reads your agent code and points at the patterns that quietly multiply token spend: prompts that never
+hit the cache, system prompts that change on every call, agent loops with no limit, retries that never stop, and
+cost reports that miss cached tokens. It works on Python and TypeScript/JavaScript, installs in seconds, and has no
+dependencies.
 
-> **Status: 0.1.0, early.** Tested locally by replaying the Action's steps against a real public repository.
-> Not yet verified on GitHub-hosted runners.
+On a pull request it only speaks up about the lines that pull request adds, right where you review them. Your code
+never leaves your machine or your CI runner.
 
-## Quick start: GitHub Action
+Built by [Vernia](https://vernia.in). Free while we are in early access.
+
+## Get started
+
+### In GitHub Actions
+
+Add `.github/workflows/spendlint.yml`:
 
 ```yaml
 name: spendlint
@@ -25,65 +31,76 @@ jobs:
       - uses: vernialabs/spendlint@v0
 ```
 
-Every input (rules, confidence threshold, `fail-on`, diff mode, SARIF upload, telemetry) is described in
-[docs/ACTION.md](docs/ACTION.md). A complete example is in
-[examples/.github/workflows/spendlint.yml](examples/.github/workflows/spendlint.yml).
+Findings show up as annotations on the changed lines, with a summary on the run page. Every option (rule
+selection, confidence threshold, failing the build, SARIF for code scanning) is in
+[docs/ACTION.md](https://github.com/vernialabs/spendlint/blob/main/docs/ACTION.md), and there is a complete
+[example workflow](https://github.com/vernialabs/spendlint/blob/main/examples/.github/workflows/spendlint.yml).
 
-## Quick start: CLI
+### On your machine
 
 ```bash
 pip install spendlint
-spendlint .                                    # scan a checkout
+spendlint .                                    # scan a project
 spendlint . --diff pr.patch --fail-on warning  # only lines a diff adds; exit 1 on warnings
 spendlint . --format sarif --out spendlint.sarif
 ```
 
-Exit codes, the `.spendlint.yml` config file and inline `# spendlint: ignore R-XXX-000 reason` comments are in
-[docs/USAGE.md](docs/USAGE.md).
+Configuration, exit codes and inline ignores are in
+[docs/USAGE.md](https://github.com/vernialabs/spendlint/blob/main/docs/USAGE.md).
 
-## What it checks
+## What it catches
 
-| Rule | What it flags | Severity | Real-world fixes behind it |
-|---|---|---|---|
-| `R-ACCT-001` | Cost computed from token counts that ignore cached-token fields | warning | 38 |
-| `R-CACHE-001` | Anthropic requests with no prompt caching anywhere in the repo | warning | 11 |
-| `R-CACHE-003` | Volatile value (timestamp, uuid, cwd) inside the system prompt | warning | 13 |
-| `R-LOOP-001` | Agent loop around an LLM call with no iteration/step bound | warning | 3 |
-| `R-LOOP-002` | Retry on an LLM call with no stop condition | warning | 2 |
-| `R-CTX-008` | Indented JSON serialized into a prompt | info | 3 |
-| `R-CALL-004` | Embedding requested one item at a time inside a loop | info | 5 |
-| `R-MEDIA-001` | Image detail hard-coded to high | info | 0 |
-| `R-OUT-001` | Chat completion with no output token cap | info | 4 |
-| `R-MODEL-001` | Frontier model hard-coded for a cheap sub-task | info | 1 |
+| Rule | What it flags | Severity |
+|---|---|---|
+| `R-ACCT-001` | Cost computed from token counts that ignore cached-token fields | warning |
+| `R-CACHE-001` | Anthropic requests with no prompt caching anywhere in the repo | warning |
+| `R-CACHE-003` | A timestamp, uuid or path inside the system prompt, which breaks the cache | warning |
+| `R-LOOP-001` | Agent loop around an LLM call with no step limit | warning |
+| `R-LOOP-002` | Retry on an LLM call with no stop condition | warning |
+| `R-CTX-008` | Pretty-printed JSON sent in a prompt | info |
+| `R-CALL-004` | Embeddings requested one item at a time inside a loop | info |
+| `R-MEDIA-001` | Image detail hard-coded to high | info |
+| `R-OUT-001` | Chat completion with no output token cap | info |
+| `R-MODEL-001` | Frontier model hard-coded for a cheap sub-task | info |
 
-The last column counts reviewed fixes in open-source agent projects that the rule is based on.
+Every rule comes from a real cost bug that an open-source agent team found and fixed. spendlint reads code, not
+invoices, so treat each finding as a pointer worth a second look in review.
 
-## Limits, stated plainly
+## What's next
 
-These are pattern rules, so they see code shape, not dollars or runtime behaviour. In our evaluation the rules
-caught about 1 in 5 of the real defects their categories cover, and about 7 in 10 findings on repositories they
-were never tuned on were real patterns. Many costly bugs (cumulative streaming usage, a cap sent under a parameter
-name the provider ignores) need runtime data and are out of reach for static checks. Treat findings as review
-prompts, not verdicts.
+spendlint is the first product from Vernia. Next up are **Vernia Reason**, a reasoning harness that reviews pull
+requests with the context of the whole repository, and **Vernia Ledger**, an agent that connects to your providers
+and billing to tie every dollar to a feature and a customer. Want early access? Write to
+[ishan.upadhyay.iitb@gmail.com](mailto:ishan.upadhyay.iitb@gmail.com).
 
 ## Telemetry
 
-spendlint records coarse usage counts (version, runtime, file counts by language, finding counts per rule) to a
-local file you can read with `spendlint telemetry show`. It never records code, file names, paths or repository
-names. It is off in CI unless you turn it on, and nothing is sent anywhere unless `SPENDLINT_TELEMETRY_URL` is set.
-Turn it off with `spendlint telemetry off`, `SPENDLINT_TELEMETRY=off` or `DO_NOT_TRACK=1`. Full schema:
-[docs/telemetry.md](docs/telemetry.md).
+spendlint keeps anonymous usage counts so we can see which rules help and where they get in the way. Here is
+exactly what that means:
+
+- **What is recorded:** spendlint version, Python version, operating system, CI provider, how many files were
+  scanned per language, how many findings each rule produced, run time, exit code, the hour of the run, and a random
+  install id.
+- **What is never recorded:** your code, file names, paths, repository names, or anything that identifies you.
+- **Where it goes:** a local file you can read at any time with `spendlint telemetry show`. Counts are sent only
+  when a collection endpoint is configured through `SPENDLINT_TELEMETRY_URL`.
+- **In CI:** off by default. Turn it on with `SPENDLINT_TELEMETRY=on` or the Action's `telemetry: on` input.
+- **Turning it off:** `spendlint telemetry off`, `SPENDLINT_TELEMETRY=off`, or `DO_NOT_TRACK=1`.
+
+The full schema is in [docs/telemetry.md](https://github.com/vernialabs/spendlint/blob/main/docs/telemetry.md).
+A paid plan with telemetry fully disabled is on the way for teams that need it.
 
 ## License
 
-spendlint is **source-available**, not open source. It is licensed under the
-[PolyForm Small Business License 1.0.0](LICENSE): free for individuals, and for companies with fewer than 100
-people and under US$1 million in annual revenue (2019 dollars; the license has the exact terms). Larger
-organisations need a commercial license; see [COMMERCIAL.md](COMMERCIAL.md).
+spendlint is source-available under the
+[PolyForm Small Business License 1.0.0](https://github.com/vernialabs/spendlint/blob/main/LICENSE). It is free
+for individuals and for companies with fewer than 100 people and under US$1 million in annual revenue (the
+license has the exact terms). Larger organisations need a commercial license; see
+[COMMERCIAL.md](https://github.com/vernialabs/spendlint/blob/main/COMMERCIAL.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Run the tests with:
+See [CONTRIBUTING.md](https://github.com/vernialabs/spendlint/blob/main/CONTRIBUTING.md). Run the tests with:
 
 ```bash
 python -m spendlint.test_rules && python -m spendlint.test_cli && python -m spendlint.test_telemetry

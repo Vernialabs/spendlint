@@ -1,5 +1,5 @@
 name: spendlint
-description: Flag LLM cost defects (missing prompt caching, unbounded agent loops, prompt bloat) on the lines a pull request adds.
+description: Catch the code that inflates your LLM bill: missing prompt caching, runaway agent loops and prompt bloat, on every PR.
 author: Vernia Labs
 branding:
   icon: dollar-sign

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 (2026-10-24)
+
+- New README and package description, with links to vernia.in.
+- Clearer telemetry section: what is recorded, what never is, and how to turn it off.
+
+No changes to rules or behaviour.
+
 ## 0.1.1 (2026-10-24)
 
 - Moved to the vernialabs organization: package links now point to github.com/vernialabs/spendlint.

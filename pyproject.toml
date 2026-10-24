@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "spendlint"
 dynamic = ["version"]
-description = "Static cost-defect checks for LLM agent code (Python and TypeScript), with SARIF and GitHub Actions output."
+description = "Catch the code that inflates your LLM bill, before it ships. Cost checks for Python and TypeScript agent code."
 readme = "README.md"
 license = "PolyForm-Small-Business-1.0.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Ishan Upadhyay" }]
 requires-python = ">=3.9"
 dependencies = []
-keywords = ["llm", "agents", "cost", "lint", "static-analysis", "prompt-caching"]
+keywords = ["llm", "ai-agents", "llm-cost", "token-usage", "prompt-caching", "finops", "linter", "static-analysis", "github-action"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Environment :: Console",
@@ -36,5 +36,8 @@ packages = ["spendlint"]
 version = { attr = "spendlint.__version__" }
 
 [project.urls]
-Homepage = "https://github.com/vernialabs/spendlint"
+Homepage = "https://vernia.in"
+Source = "https://github.com/vernialabs/spendlint"
+Documentation = "https://github.com/vernialabs/spendlint/blob/main/docs/USAGE.md"
+Changelog = "https://github.com/vernialabs/spendlint/blob/main/CHANGELOG.md"
 Issues = "https://github.com/vernialabs/spendlint/issues"

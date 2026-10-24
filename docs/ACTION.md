@@ -4,9 +4,6 @@ A composite action (no Docker). It creates a virtualenv on the runner, installs 
 checkout (no PyPI package needed), scans, prints one annotation per finding, writes a Markdown table to the job
 summary, and can upload SARIF to code scanning. Code never leaves the runner.
 
-> Status: 0.1.0, early. Tested by replaying the action's steps locally against a real public repository;
-> not yet verified on GitHub-hosted runners.
-
 ## Minimal workflow
 
 ```yaml

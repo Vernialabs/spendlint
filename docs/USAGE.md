@@ -5,17 +5,14 @@ unbounded agent loops and retries, indented JSON in prompts, one-at-a-time embed
 mis-counted cached tokens. Python (via `ast`) and TypeScript/JavaScript (via patterns). Pure Python, standard
 library only.
 
-The rules come from a reviewed study of 185 real cost-defect fixes in open-source agent projects. Measured quality,
-stated plainly: the rules catch about 1 in 5 of the real defects their categories cover, and about 7 in 10 findings
-on repositories they were never tuned on were real patterns. Treat findings as review prompts, not verdicts.
+Every rule is based on real cost-defect fixes in open-source agent projects. spendlint reads code, not invoices, so
+treat each finding as a pointer worth a second look in review.
 
 ## Install
 
-From a checkout (there is no PyPI package yet):
-
 ```bash
-pip install .            # provides the `spendlint` command
-pip install ".[yaml]"    # optional: full YAML support for .spendlint.yml via PyYAML
+pip install spendlint            # provides the `spendlint` command
+pip install "spendlint[yaml]"    # optional: full YAML support for .spendlint.yml via PyYAML
 spendlint --version
 ```
 
