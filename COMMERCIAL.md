@@ -10,7 +10,7 @@ dollars) in total revenue. The license text is the authority on what qualifies.
 repositories. A commercial license covers use across the organisation and includes priority support for rule
 false positives.
 
-To ask about a commercial license, contact: <CONTACT EMAIL>
+To ask about a commercial license, contact: ishan.upadhyay.iitb@gmail.com
 
 This page describes licensing; it is not itself a license or an agreement. A commercial license is granted only by
 a separate written agreement.
