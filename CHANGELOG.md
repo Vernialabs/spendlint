@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.1 (2026-10-24)
+
+- Moved to the vernialabs organization: package links now point to github.com/vernialabs/spendlint.
+- The Action reference is now `vernialabs/spendlint@v0`.
+- README quick start installs from PyPI.
+
+No changes to rules or behaviour.
+
+## 0.1.0 (2026-10-24)
 
 First public version.
 
