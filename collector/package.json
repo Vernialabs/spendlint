@@ -1,0 +1,15 @@
+{
+  "name": "spendlint-telemetry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init:local": "wrangler d1 execute spendlint-telemetry --local --file=schema.sql",
+    "db:init:remote": "wrangler d1 execute spendlint-telemetry --remote --file=schema.sql",
+    "test": "node --test test/validate.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.148.0"
+  }
+}

@@ -96,8 +96,9 @@ See `docs/ACTION.md`.
 
 ## Telemetry
 
-Local CLI runs record coarse, anonymous usage counts to a local log after a one-time notice; CI is off unless you opt
-in; nothing is sent anywhere unless `SPENDLINT_TELEMETRY_URL` is set. No code, paths or names are ever recorded.
+Local CLI runs record coarse, anonymous usage counts after a one-time notice; CI is off unless you opt in. Events go
+to a local log and to Vernia's collector at `t.vernia.in` (`SPENDLINT_TELEMETRY_URL=none` keeps them local). No code,
+paths or names are ever recorded.
 `spendlint telemetry status|show|off|on`, `SPENDLINT_TELEMETRY=off` or `DO_NOT_TRACK=1`. Full schema: `docs/telemetry.md`.
 
 ## Tests

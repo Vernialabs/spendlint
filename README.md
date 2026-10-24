@@ -82,10 +82,13 @@ exactly what that means:
   scanned per language, how many findings each rule produced, run time, exit code, the hour of the run, and a random
   install id.
 - **What is never recorded:** your code, file names, paths, repository names, or anything that identifies you.
-- **Where it goes:** a local file you can read at any time with `spendlint telemetry show`. Counts are sent only
-  when a collection endpoint is configured through `SPENDLINT_TELEMETRY_URL`.
+- **Where it goes:** a local file you can read at any time with `spendlint telemetry show`, and Vernia's collector
+  at `t.vernia.in`, which stores only these counts (not your IP address). Its source is in
+  [collector/](https://github.com/vernialabs/spendlint/tree/main/collector). Set `SPENDLINT_TELEMETRY_URL=none`
+  to keep everything local.
 - **In CI:** off by default. Turn it on with `SPENDLINT_TELEMETRY=on` or the Action's `telemetry: on` input.
 - **Turning it off:** `spendlint telemetry off`, `SPENDLINT_TELEMETRY=off`, or `DO_NOT_TRACK=1`.
+- **First run:** spendlint prints this list once before it records anything.
 
 The full schema is in [docs/telemetry.md](https://github.com/vernialabs/spendlint/blob/main/docs/telemetry.md).
 A paid plan with telemetry fully disabled is on the way for teams that need it.

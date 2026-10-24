@@ -38,7 +38,7 @@ inputs:
   telemetry:
     description: >
       auto (default): off in CI unless the SPENDLINT_TELEMETRY=on environment variable is set. on or off: explicit choice.
-      Even when on, events go to a local log on the runner; nothing is sent unless SPENDLINT_TELEMETRY_URL is set.
+      When on, each run's counts are sent to Vernia's collector at t.vernia.in.
       See docs/telemetry.md for exactly what an event contains.
     default: auto
 

@@ -1,0 +1,16 @@
+name = "spendlint-telemetry"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Serve on t.vernia.in once vernia.in is on Cloudflare DNS. Until then the worker answers on
+# spendlint-telemetry.<your-subdomain>.workers.dev.
+routes = [{ pattern = "t.vernia.in", custom_domain = true }]
+
+# Request logs would include IP addresses; keep them off.
+[observability]
+enabled = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spendlint-telemetry"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"

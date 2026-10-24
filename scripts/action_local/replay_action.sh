@@ -36,7 +36,7 @@ scan() {
   local name=$1; shift
   env GITHUB_OUTPUT="$RUN/out_scan_$name" SPENDLINT_PYTHON="$PY" SPENDLINT_AUDIT_LOG="$RUN/audit_scan_$name.log" \
       INPUT_PATH=. INPUT_RULES= INPUT_MIN_CONFIDENCE= INPUT_FAIL_ON=none INPUT_DIFF_MODE=auto INPUT_DIFF_BASE= \
-      INPUT_CONFIG= INPUT_SARIF_OUTPUT= INPUT_TELEMETRY=auto "$@" \
+      INPUT_CONFIG= INPUT_SARIF_OUTPUT= INPUT_TELEMETRY=auto SPENDLINT_TELEMETRY_URL=none "$@" \
       bash "$ACTION/action/scan.sh" > "$RUN/log_scan_$name.txt" 2>&1
   local step=$?
   local ec; ec=$(sed -n 's/^exit-code=//p' "$RUN/out_scan_$name")

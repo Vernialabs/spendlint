@@ -41,7 +41,8 @@ class Base(unittest.TestCase):
         self.log = self.tmp / "data" / "events.jsonl"
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(("SPENDLINT_", "GITHUB_", "INPUT_", "RUNNER_")) and k not in CI_VARS}
-        env.update(SPENDLINT_DATA_DIR=str(self.data), SPENDLINT_TELEMETRY_LOG=str(self.log))
+        # local only by default, so no test can reach the real collector
+        env.update(SPENDLINT_DATA_DIR=str(self.data), SPENDLINT_TELEMETRY_LOG=str(self.log), SPENDLINT_TELEMETRY_URL="none")
         self.patch = mock.patch.dict(os.environ, env, clear=True)
         self.patch.start()
 
@@ -167,6 +168,15 @@ class TestOptOuts(Base):
         self.assertNotIn("anonymous usage", err2)
         self.assertEqual(len(self.events()), 1)
 
+    def test_older_notice_is_shown_again(self):
+        # 0.1.x said nothing would be sent; those users see the new notice before anything is sent
+        telemetry.save_state({"notice_shown": True, "install_id": "0b6f8f53-3c1a-4d55-9a57-2f1d7c1e4a10"})
+        _, _, err = self.run_cli(str(self.repo))
+        self.assertIn("t.vernia.in", err)
+        self.assertEqual(self.events(), [])
+        self.run_cli(str(self.repo))
+        self.assertEqual(len(self.events()), 1)
+
     def test_no_notice_in_ci(self):
         _, _, err = self.run_cli(str(self.repo), GITHUB_ACTIONS="true")
         self.assertEqual(err, "")
@@ -203,11 +213,30 @@ class TestSending(Base):
     def baseline(self):
         return self.run_cli(str(self.repo), "--fail-on", "warning", SPENDLINT_TELEMETRY="off")[0]
 
-    def test_nothing_sent_without_url(self):
-        with mock.patch("urllib.request.urlopen") as urlopen:
-            self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on")
-        urlopen.assert_not_called()
-        self.assertEqual(len(self.events()), 1)
+    def test_nothing_sent_when_url_is_none(self):
+        for value in ("none", "off", "LOCAL"):
+            with mock.patch("urllib.request.urlopen") as urlopen:
+                self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=value)
+            urlopen.assert_not_called()
+        self.assertEqual(len(self.events()), 3)
+
+    def test_default_endpoint_is_vernia(self):
+        with mock.patch.dict(os.environ):
+            del os.environ["SPENDLINT_TELEMETRY_URL"]
+            with mock.patch.object(telemetry, "_send") as send:
+                self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on")
+        send.assert_called_once()
+        self.assertEqual(send.call_args[0][1], "https://t.vernia.in/v1/events")
+        self.assertEqual(send.call_args[0][0], self.events()[0])
+
+    def test_nothing_sent_when_off(self):
+        with mock.patch.dict(os.environ):
+            del os.environ["SPENDLINT_TELEMETRY_URL"]
+            for env in ({"SPENDLINT_TELEMETRY": "off"}, {"DO_NOT_TRACK": "1"}, {"GITHUB_ACTIONS": "true"}):
+                with mock.patch.object(telemetry, "_send") as send:
+                    self.run_cli(str(self.repo), **env)
+                send.assert_not_called()
+        self.assertEqual(self.events(), [])
 
     def test_sent_body_equals_logged_event(self):
         srv = Server("ok")

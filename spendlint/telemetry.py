@@ -13,8 +13,8 @@ Switches, strongest first:
   `spendlint telemetry off|on`         stored local preference
   otherwise (local CLI)               on, after a one-time notice; the run that shows the notice records nothing
 
-Events are appended to a local JSONL log (`spendlint telemetry show`). They are sent to a server only if
-SPENDLINT_TELEMETRY_URL is set; there is no default endpoint, so by default nothing leaves the machine.
+Events are appended to a local JSONL log (`spendlint telemetry show`) and sent to DEFAULT_URL, Vernia's
+collector. SPENDLINT_TELEMETRY_URL points them elsewhere; SPENDLINT_TELEMETRY_URL=none keeps them local only.
 Sending uses a short timeout and swallows every error: telemetry can never change a scan's result or exit code.
 """
 import hashlib
@@ -32,6 +32,9 @@ from .meta import RULES
 
 SCHEMA_VERSION = 1
 SEND_TIMEOUT = 1.5
+DEFAULT_URL = "https://t.vernia.in/v1/events"
+LOCAL_ONLY = {"none", "off", "local"}
+NOTICE_VERSION = 2  # 2: events are sent to DEFAULT_URL. Anyone who saw an older notice sees the new one once.
 TRUE = {"1", "true", "yes", "on"}
 FALSE = {"0", "false", "no", "off"}
 COMMANDS = ("scan", "action")
@@ -48,8 +51,8 @@ spendlint collects anonymous usage statistics to learn which rules are useful. E
   runtime in seconds, number of files scanned per language, number of findings per rule id, exit code,
   and a random install id created on this machine.
 It never records source code, file or directory names, repository or branch names, commit messages
-or finding text. Events are written to a local log you can read with `spendlint telemetry show`;
-nothing is sent anywhere unless SPENDLINT_TELEMETRY_URL is set (it is not set by default).
+or finding text. Events are written to a local log you can read with `spendlint telemetry show`
+and sent to https://t.vernia.in, which stores only these fields (not your IP address).
 Turn it off with `spendlint telemetry off`, SPENDLINT_TELEMETRY=off, or DO_NOT_TRACK=1.
 This notice is shown once; this run was not recorded.
 """
@@ -124,7 +127,7 @@ def decision(env=None, state=None):
         return False, "turned off with `spendlint telemetry off`", False
     if state.get("enabled") is True:
         return True, "turned on with `spendlint telemetry on`", False
-    if not state.get("notice_shown"):
+    if state.get("notice_version", 0) < NOTICE_VERSION:
         return False, "first run: notice not yet shown", True
     return True, "default for local use, notice already shown", False
 
@@ -190,6 +193,15 @@ def validate_event(event):
         raise ValueError("event values do not match the schema")
 
 
+def endpoint(env=None):
+    """Where events are sent, or None to keep them in the local log only."""
+    env = os.environ if env is None else env
+    url = env.get("SPENDLINT_TELEMETRY_URL", "").strip()
+    if url.lower() in LOCAL_ONLY:
+        return None
+    return url or DEFAULT_URL
+
+
 def _send(event, url):
     import urllib.request
     if not url.lower().startswith(("https://", "http://")):
@@ -208,6 +220,7 @@ def record(command, runtime_seconds, stats, findings, exit_code, stderr=None):
         if needs_notice:
             (stderr or sys.stderr).write(NOTICE)
             state["notice_shown"] = True
+            state["notice_version"] = NOTICE_VERSION
             save_state(state)
             return None
         if not enabled:
@@ -220,7 +233,7 @@ def record(command, runtime_seconds, stats, findings, exit_code, stderr=None):
         lp.parent.mkdir(parents=True, exist_ok=True)
         with lp.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(event, sort_keys=True) + "\n")
-        url = os.environ.get("SPENDLINT_TELEMETRY_URL", "").strip()
+        url = endpoint()
         if url:
             try:
                 _send(event, url)
@@ -239,6 +252,7 @@ def command(argv, out=None):
         state = load_state()
         state["enabled"] = sub == "on"
         state["notice_shown"] = True
+        state["notice_version"] = NOTICE_VERSION
         save_state(state)
         out.write(f"spendlint telemetry is now {sub} for this user (stored in {_state_path()}).\n")
         enabled, reason, _ = decision()
@@ -248,11 +262,11 @@ def command(argv, out=None):
     if sub == "status":
         state = load_state()
         enabled, reason, _ = decision(state=state)
-        url = os.environ.get("SPENDLINT_TELEMETRY_URL", "").strip()
+        url = endpoint()
         out.write(f"telemetry: {'on' if enabled else 'off'} ({reason})\n")
         out.write(f"install id: {state.get('install_id', '(not created yet)')}\n")
         out.write(f"local log: {log_path()}\n")
-        out.write(f"endpoint: {url if url else '(none: SPENDLINT_TELEMETRY_URL is not set, nothing is sent)'}\n")
+        out.write(f"endpoint: {url if url else '(none: SPENDLINT_TELEMETRY_URL=none, nothing is sent)'}\n")
         out.write(f"license key: {'set (sent as a sha256 prefix)' if os.environ.get('SPENDLINT_LICENSE_KEY') else 'not set'}\n")
         out.write(f"CI provider detected: {ci_provider()}\n")
         return 0
