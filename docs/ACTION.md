@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: ishan121028/spendlint@v0
+      - uses: vernialabs/spendlint@v0
 ```
 
 On a pull request this reports only findings on lines the pull request adds. Findings already on the base branch

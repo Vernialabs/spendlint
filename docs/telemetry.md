@@ -107,7 +107,7 @@ spendlint telemetry on       # store "on" for this user
 ## GitHub Action
 
 ```yaml
-- uses: ishan121028/spendlint@v0
+- uses: vernialabs/spendlint@v0
   with:
     telemetry: on      # default auto = off in CI
 ```

@@ -36,5 +36,5 @@ packages = ["spendlint"]
 version = { attr = "spendlint.__version__" }
 
 [project.urls]
-Homepage = "https://github.com/ishan121028/spendlint"
-Issues = "https://github.com/ishan121028/spendlint/issues"
+Homepage = "https://github.com/vernialabs/spendlint"
+Issues = "https://github.com/vernialabs/spendlint/issues"

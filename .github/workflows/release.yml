@@ -1,7 +1,7 @@
 # Publishes spendlint to PyPI when a GitHub release is published.
 # Uses PyPI trusted publishing (OpenID Connect): no API token or password is stored anywhere.
 # One-time setup on https://pypi.org/manage/account/publishing/ (pending publisher):
-#   PyPI project name: spendlint   Owner: ishan121028   Repository: spendlint
+#   PyPI project name: spendlint   Owner: Vernialabs   Repository: spendlint
 #   Workflow name: release.yml     Environment name: pypi
 name: release
 on:

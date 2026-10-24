@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: ishan121028/spendlint@v0
+      - uses: vernialabs/spendlint@v0
 ```
 
 Every input (rules, confidence threshold, `fail-on`, diff mode, SARIF upload, telemetry) is described in
@@ -32,7 +32,7 @@ Every input (rules, confidence threshold, `fail-on`, diff mode, SARIF upload, te
 ## Quick start: CLI
 
 ```bash
-pip install git+https://github.com/ishan121028/spendlint
+pip install spendlint
 spendlint .                                    # scan a checkout
 spendlint . --diff pr.patch --fail-on warning  # only lines a diff adds; exit 1 on warnings
 spendlint . --format sarif --out spendlint.sarif

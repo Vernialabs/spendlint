@@ -1,5 +1,5 @@
 # Example workflow: copy to .github/workflows/spendlint.yml in the repository you want checked.
-# Pin to a release tag or commit SHA of ishan121028/spendlint.
+# Pin to a release tag or commit SHA of vernialabs/spendlint.
 name: spendlint
 
 on:
@@ -21,7 +21,7 @@ jobs:
 
       - name: spendlint
         id: spendlint
-        uses: ishan121028/spendlint@v0
+        uses: vernialabs/spendlint@v0
         with:
           path: .
           fail-on: none            # none | info | warning
