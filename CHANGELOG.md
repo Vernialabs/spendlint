@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 (2026-10-24)
+
+- Fixed the GitHub Action: `action.yml` from 0.1.2 and 0.1.3 did not parse, so `vernialabs/spendlint@v0` failed
+  before it started. The description is now quoted.
+- CI now runs the Action itself on a GitHub runner, so a broken `action.yml` cannot be released again.
+
 ## 0.1.3 (2026-10-24)
 
 - Telemetry events are sent to Vernia's collector at `t.vernia.in`. It stores only the documented counts, never IP

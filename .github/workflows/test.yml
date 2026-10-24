@@ -22,3 +22,24 @@ jobs:
       - run: python -m spendlint.test_rules
       - run: python -m unittest spendlint.test_cli spendlint.test_telemetry
       - run: python -m pip install . && spendlint --version
+
+  # Runs the Action from this checkout, the way users run vernialabs/spendlint@v0, so a broken
+  # action.yml or install/scan script fails here before it is tagged.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: spendlint (this checkout)
+        id: spendlint
+        uses: ./
+        with:
+          path: spendlint
+          diff-mode: off
+          fail-on: none
+      - name: Check the outputs
+        env:
+          FINDINGS: ${{ steps.spendlint.outputs.findings-count }}
+          EXIT_CODE: ${{ steps.spendlint.outputs.exit-code }}
+        run: |
+          echo "findings=$FINDINGS exit-code=$EXIT_CODE"
+          test -n "$FINDINGS" && test "$EXIT_CODE" = "0"
