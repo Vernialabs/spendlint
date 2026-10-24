@@ -1,9 +1,9 @@
-# Test harness only (installed into the throwaway venv, never into costlint): log network and subprocess
-# activity of every Python process in the venv, to show what costlint does and does not touch.
+# Test harness only (installed into the throwaway venv, never into spendlint): log network and subprocess
+# activity of every Python process in the venv, to show what spendlint does and does not touch.
 import os
 import sys
 
-_LOG = os.environ.get("COSTLINT_AUDIT_LOG")
+_LOG = os.environ.get("SPENDLINT_AUDIT_LOG")
 if _LOG:
     def _hook(event, args):
         if event in ("socket.connect", "socket.getaddrinfo", "urllib.Request", "subprocess.Popen"):

@@ -1,4 +1,4 @@
-"""Run: python -m unittest costlint.test_telemetry
+"""Run: python -m unittest spendlint.test_telemetry
 
 Proves the telemetry promises in docs/telemetry.md: no paths, names or code in an event; every opt-out works;
 CI is off by default; a broken or slow endpoint never changes the exit code; nothing is sent without a URL.
@@ -40,8 +40,8 @@ class Base(unittest.TestCase):
         self.data = self.tmp / "data"
         self.log = self.tmp / "data" / "events.jsonl"
         env = {k: v for k, v in os.environ.items()
-               if not k.startswith(("COSTLINT_", "GITHUB_", "INPUT_", "RUNNER_")) and k not in CI_VARS}
-        env.update(COSTLINT_DATA_DIR=str(self.data), COSTLINT_TELEMETRY_LOG=str(self.log))
+               if not k.startswith(("SPENDLINT_", "GITHUB_", "INPUT_", "RUNNER_")) and k not in CI_VARS}
+        env.update(SPENDLINT_DATA_DIR=str(self.data), SPENDLINT_TELEMETRY_LOG=str(self.log))
         self.patch = mock.patch.dict(os.environ, env, clear=True)
         self.patch.start()
 
@@ -81,8 +81,8 @@ class Base(unittest.TestCase):
 
 class TestEventContent(Base):
     def test_cli_event_has_no_paths_names_or_code(self):
-        code, _, _ = self.run_cli(str(self.repo), "--fail-on", "info", COSTLINT_TELEMETRY="on",
-                                  COSTLINT_LICENSE_KEY="hunter2-license")
+        code, _, _ = self.run_cli(str(self.repo), "--fail-on", "info", SPENDLINT_TELEMETRY="on",
+                                  SPENDLINT_LICENSE_KEY="hunter2-license")
         self.assertEqual(code, 1)
         raw = self.log.read_text(encoding="utf-8")
         self.assert_clean(raw)
@@ -113,13 +113,13 @@ class TestEventContent(Base):
             telemetry.validate_event(ev)
 
     def test_install_id_is_random_and_stable(self):
-        self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on")
-        self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on")
+        self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on")
+        self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on")
         ids = {e["install_id"] for e in self.events()}
         self.assertEqual(len(ids), 1)
         other = Path(tempfile.mkdtemp())
         try:
-            self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on", COSTLINT_DATA_DIR=str(other))
+            self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on", SPENDLINT_DATA_DIR=str(other))
         finally:
             shutil.rmtree(other, ignore_errors=True)
         self.assertEqual(len({e["install_id"] for e in self.events()}), 2)  # new data dir, new random id
@@ -127,13 +127,13 @@ class TestEventContent(Base):
 
 class TestOptOuts(Base):
     def test_do_not_track_beats_explicit_on(self):
-        self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on", DO_NOT_TRACK="1")
+        self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on", DO_NOT_TRACK="1")
         self.run_action(INPUT_TELEMETRY="on", DO_NOT_TRACK="1")
         self.assertEqual(self.events(), [])
         self.assertNotIn("install_id", telemetry.load_state())
 
     def test_env_off(self):
-        self.run_cli(str(self.repo), COSTLINT_TELEMETRY="off")
+        self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="off")
         self.assertEqual(self.events(), [])
 
     def test_ci_is_off_by_default(self):
@@ -144,9 +144,9 @@ class TestOptOuts(Base):
         self.assertEqual(self.events(), [])
 
     def test_ci_opt_in_via_env_and_action_input_off_wins(self):
-        self.run_action(COSTLINT_TELEMETRY="on")
+        self.run_action(SPENDLINT_TELEMETRY="on")
         self.assertEqual(len(self.events()), 1)
-        self.run_action(COSTLINT_TELEMETRY="on", INPUT_TELEMETRY="off")
+        self.run_action(SPENDLINT_TELEMETRY="on", INPUT_TELEMETRY="off")
         self.assertEqual(len(self.events()), 1)
 
     def test_stored_preference(self):
@@ -160,7 +160,7 @@ class TestOptOuts(Base):
 
     def test_first_run_notice_once_and_that_run_not_recorded(self):
         _, out, err = self.run_cli(str(self.repo), "--format", "sarif")
-        self.assertIn("costlint collects anonymous usage statistics", err)
+        self.assertIn("spendlint collects anonymous usage statistics", err)
         json.loads(out)  # the notice never pollutes stdout (SARIF stays valid)
         self.assertEqual(self.events(), [])
         _, _, err2 = self.run_cli(str(self.repo))
@@ -201,18 +201,18 @@ class Server:
 
 class TestSending(Base):
     def baseline(self):
-        return self.run_cli(str(self.repo), "--fail-on", "warning", COSTLINT_TELEMETRY="off")[0]
+        return self.run_cli(str(self.repo), "--fail-on", "warning", SPENDLINT_TELEMETRY="off")[0]
 
     def test_nothing_sent_without_url(self):
         with mock.patch("urllib.request.urlopen") as urlopen:
-            self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on")
+            self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on")
         urlopen.assert_not_called()
         self.assertEqual(len(self.events()), 1)
 
     def test_sent_body_equals_logged_event(self):
         srv = Server("ok")
         try:
-            self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on", COSTLINT_TELEMETRY_URL=srv.url)
+            self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=srv.url)
         finally:
             srv.close()
         (body,) = srv.received
@@ -228,7 +228,7 @@ class TestSending(Base):
         try:
             for url in (srv.url, closed.url, "http://[::1", "ftp://example.invalid/x", "not a url"):
                 code, _, err = self.run_cli(str(self.repo), "--fail-on", "warning",
-                                            COSTLINT_TELEMETRY="on", COSTLINT_TELEMETRY_URL=url)
+                                            SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=url)
                 self.assertEqual(code, expected, url)
                 self.assertNotIn("Traceback", err)
         finally:
@@ -240,7 +240,7 @@ class TestSending(Base):
         try:
             t = time.monotonic()
             code, _, _ = self.run_cli(str(self.repo), "--fail-on", "warning",
-                                      COSTLINT_TELEMETRY="on", COSTLINT_TELEMETRY_URL=srv.url)
+                                      SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=srv.url)
             elapsed = time.monotonic() - t
         finally:
             srv.close()
@@ -250,24 +250,24 @@ class TestSending(Base):
     def test_action_exit_code_unchanged_by_failing_endpoint(self):
         expected, _ = self.run_action(INPUT_FAIL_ON="warning")
         code, _ = self.run_action(INPUT_FAIL_ON="warning", INPUT_TELEMETRY="on",
-                                  COSTLINT_TELEMETRY_URL="http://127.0.0.1:9/unreachable")
+                                  SPENDLINT_TELEMETRY_URL="http://127.0.0.1:9/unreachable")
         self.assertEqual((expected, code), (1, 1))
 
     def test_internal_failure_is_swallowed(self):
         with mock.patch.object(telemetry, "build_event", side_effect=RuntimeError("boom")):
-            code, _, err = self.run_cli(str(self.repo), "--fail-on", "warning", COSTLINT_TELEMETRY="on")
+            code, _, err = self.run_cli(str(self.repo), "--fail-on", "warning", SPENDLINT_TELEMETRY="on")
         self.assertEqual(code, 1)
         self.assertNotIn("boom", err)
 
 
 class TestSubcommand(Base):
     def test_status_and_show(self):
-        code, out, _ = self.run_cli("telemetry", "status", COSTLINT_TELEMETRY="on")
+        code, out, _ = self.run_cli("telemetry", "status", SPENDLINT_TELEMETRY="on")
         self.assertEqual(code, 0)
-        self.assertIn("telemetry: on (COSTLINT_TELEMETRY=on)", out)
+        self.assertIn("telemetry: on (SPENDLINT_TELEMETRY=on)", out)
         self.assertIn("nothing is sent", out)
         self.assertIn("no events recorded", self.run_cli("telemetry", "show")[1])
-        self.run_cli(str(self.repo), COSTLINT_TELEMETRY="on")
+        self.run_cli(str(self.repo), SPENDLINT_TELEMETRY="on")
         out = self.run_cli("telemetry", "show")[1]
         self.assertEqual(json.loads(out)["command"], "scan")
         self.assertIn("telemetry: off (DO_NOT_TRACK is set)", self.run_cli("telemetry", "status", DO_NOT_TRACK="1")[1])

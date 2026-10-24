@@ -57,7 +57,7 @@ def _cell(s):
     return str(s).replace("|", "\\|").replace("\n", " ").replace("\r", " ")
 
 
-def summary_markdown(findings, stats, title="costlint", diff_note=None):
+def summary_markdown(findings, stats, title="spendlint", diff_note=None):
     """A Markdown block for $GITHUB_STEP_SUMMARY: totals, per-rule counts and the first findings."""
     md = [f"## {title}", ""]
     scanned = f"Scanned {stats['files']} file(s) ({stats['py']} Python, {stats['ts']} TypeScript/JavaScript)"
@@ -65,7 +65,7 @@ def summary_markdown(findings, stats, title="costlint", diff_note=None):
         scanned += f"; {diff_note}"
     md.append(scanned + ".")
     if stats.get("suppressed"):
-        md.append(f"{stats['suppressed']} finding(s) suppressed by inline `costlint: ignore` comments.")
+        md.append(f"{stats['suppressed']} finding(s) suppressed by inline `spendlint: ignore` comments.")
     md.append("")
     if not findings:
         md += ["No cost findings.", ""]

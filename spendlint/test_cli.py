@@ -1,4 +1,4 @@
-"""Run: python -m unittest costlint.test_cli   (CLI flags, config, suppression, formats, exit codes, git diff)"""
+"""Run: python -m unittest spendlint.test_cli   (CLI flags, config, suppression, formats, exit codes, git diff)"""
 import io
 import json
 import os
@@ -36,8 +36,8 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.td = Path(tempfile.mkdtemp())
         self.data = Path(tempfile.mkdtemp())
-        env = {k: v for k, v in os.environ.items() if not k.startswith(("COSTLINT_", "GITHUB_", "INPUT_", "RUNNER_"))}
-        env.update(COSTLINT_DATA_DIR=str(self.data), COSTLINT_TELEMETRY="off")
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("SPENDLINT_", "GITHUB_", "INPUT_", "RUNNER_"))}
+        env.update(SPENDLINT_DATA_DIR=str(self.data), SPENDLINT_TELEMETRY="off")
         self.env = mock.patch.dict(os.environ, env, clear=True)
         self.env.start()
 
@@ -57,7 +57,7 @@ class TestVersionAndExitCodes(Base):
     def test_version(self):
         code, out, _ = run_cli("--version")
         self.assertEqual(code, 0)
-        self.assertEqual(out.strip(), f"costlint {__version__}")
+        self.assertEqual(out.strip(), f"spendlint {__version__}")
 
     def test_fail_on_levels(self):
         self.write("a.py", SRC)
@@ -81,7 +81,7 @@ class TestVersionAndExitCodes(Base):
 
     def test_bad_config_exits_two(self):
         self.write("a.py", SRC)
-        self.write(".costlint.json", '{"disable": ["R-NOT-REAL"]}')
+        self.write(".spendlint.json", '{"disable": ["R-NOT-REAL"]}')
         code, _, err = run_cli(str(self.td))
         self.assertEqual(code, 2)
         self.assertIn("unknown rule id", err)
@@ -95,33 +95,33 @@ class TestConfig(Base):
     def test_yaml_disable_ignore_min_confidence(self):
         self.write("a.py", SRC)
         self.write("legacy/b.py", SRC)
-        self.write(".costlint.yml", "# comment\ndisable: [R-CTX-008]\nignore_paths:\n  - legacy/*\nmin_confidence: 0.1\n")
+        self.write(".spendlint.yml", "# comment\ndisable: [R-CTX-008]\nignore_paths:\n  - legacy/*\nmin_confidence: 0.1\n")
         code, out, _ = run_cli(str(self.td), "--format", "jsonl")
         found = [json.loads(l) for l in out.splitlines()]
         self.assertEqual([(f["rule_id"], f["path"]) for f in found], [("R-CACHE-003", "a.py")])
 
     def test_json_config_and_explicit_path(self):
         self.write("a.py", SRC)
-        cfg = self.write("cfg/costlint.json", json.dumps({"disable": ["R-CACHE-003"]}))
+        cfg = self.write("cfg/spendlint.json", json.dumps({"disable": ["R-CACHE-003"]}))
         _, out, _ = run_cli(str(self.td), "--config", str(cfg), "--format", "jsonl")
         self.assertEqual({json.loads(l)["rule_id"] for l in out.splitlines()}, {"R-CTX-008"})
 
     def test_min_confidence_from_config_and_flag_override(self):
         self.write("a.py", SRC)
-        self.write(".costlint.json", '{"min_confidence": 0.99}')
+        self.write(".spendlint.json", '{"min_confidence": 0.99}')
         self.assertEqual(run_cli(str(self.td), "--format", "jsonl")[1].strip(), "")
         _, out, _ = run_cli(str(self.td), "--format", "jsonl", "--min-confidence", "0")
         self.assertEqual(len(out.splitlines()), 2)
 
     def test_no_config_flag(self):
         self.write("a.py", SRC)
-        self.write(".costlint.json", '{"disable": ["R-CACHE-003", "R-CTX-008"]}')
+        self.write(".spendlint.json", '{"disable": ["R-CACHE-003", "R-CTX-008"]}')
         self.assertEqual(run_cli(str(self.td), "--fail-on", "info")[0], 0)
         self.assertEqual(run_cli(str(self.td), "--fail-on", "info", "--no-config")[0], 1)
 
     def test_directory_pattern(self):
         self.write("gen/x/b.py", SRC)
-        self.write(".costlint.yml", "ignore_paths: [gen/]\n")
+        self.write(".spendlint.yml", "ignore_paths: [gen/]\n")
         self.assertEqual(run_cli(str(self.td), "--fail-on", "info")[0], 0)
 
     def test_simple_yaml_reader(self):
@@ -132,7 +132,7 @@ class TestConfig(Base):
 
     def test_validation(self):
         for text in ('{"surprise": 1}', '{"min_confidence": 2}', '{"ignore_paths": [1]}', '[]'):
-            p = self.write(".costlint.json", text)
+            p = self.write(".spendlint.json", text)
             with self.assertRaises(ConfigError):
                 load_config(p)
 
@@ -140,28 +140,28 @@ class TestConfig(Base):
 class TestSuppression(Base):
     def test_same_line_and_line_above(self):
         self.write("a.py", "import json\n"
-                           "p = f'Data: {json.dumps(d, indent=2)}'  # costlint: ignore R-CTX-008 debug only\n"
-                           "# costlint: ignore R-CACHE-003 day-level is fine here\n"
+                           "p = f'Data: {json.dumps(d, indent=2)}'  # spendlint: ignore R-CTX-008 debug only\n"
+                           "# spendlint: ignore R-CACHE-003 day-level is fine here\n"
                            "SYSTEM_PROMPT = f'Now: {datetime.now()}'\n")
         findings, stats = scan_repo(self.td)
         self.assertEqual(findings, [])
         self.assertEqual(stats["suppressed"], 2)
 
     def test_other_rule_id_does_not_suppress(self):
-        self.write("a.py", "p = f'Data: {json.dumps(d, indent=2)}'  # costlint: ignore R-OUT-001\n")
+        self.write("a.py", "p = f'Data: {json.dumps(d, indent=2)}'  # spendlint: ignore R-OUT-001\n")
         self.assertEqual({f["rule_id"] for f in scan_repo(self.td)[0]}, {"R-CTX-008"})
 
     def test_bare_ignore_needs_a_rule_id(self):
-        self.write("a.py", "p = f'Data: {json.dumps(d, indent=2)}'  # costlint: ignore\n")
+        self.write("a.py", "p = f'Data: {json.dumps(d, indent=2)}'  # spendlint: ignore\n")
         self.assertEqual(len(scan_repo(self.td)[0]), 1)
 
     def test_typescript_comment(self):
-        self.write("a.ts", "// costlint: ignore R-CACHE-003 rounded upstream\n"
+        self.write("a.ts", "// spendlint: ignore R-CACHE-003 rounded upstream\n"
                            "const systemPrompt = `You are X. Today is ${new Date().toISOString()}`;\n")
         self.assertEqual(scan_repo(self.td)[0], [])
 
     def test_parse_list_and_reason(self):
-        self.assertEqual(suppressed_rules("x  # costlint: ignore R-OUT-001, R-CTX-008 reason R-LOOP-001"),
+        self.assertEqual(suppressed_rules("x  # spendlint: ignore R-OUT-001, R-CTX-008 reason R-LOOP-001"),
                          {"R-OUT-001", "R-CTX-008"})
 
 
@@ -186,7 +186,7 @@ class TestFormats(Base):
         summary.write_text("previous step\n", encoding="utf-8")
         run_cli(str(self.td), "--summary-md", str(summary))
         text = summary.read_text(encoding="utf-8")
-        self.assertTrue(text.startswith("previous step\n## costlint"))
+        self.assertTrue(text.startswith("previous step\n## spendlint"))
         self.assertIn("| R-CACHE-003 |", text)
         self.assertIn("| warning | R-CACHE-003 | `a.py:4` |", text)
         self.assertIn("**2 finding(s)**", text)
@@ -255,7 +255,7 @@ class TestGitDiff(Base):
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
 class TestAction(Base):
-    """`costlint action` as action.yml runs it, against a local git repository standing in for a PR checkout."""
+    """`spendlint action` as action.yml runs it, against a local git repository standing in for a PR checkout."""
 
     def git(self, *args):
         subprocess.run(["git", "-C", str(self.td), "-c", "user.email=t@example.invalid", "-c", "user.name=t", *args],
@@ -301,7 +301,7 @@ class TestAction(Base):
         self.make_pr()
         _, out, _, _ = self.run_action(INPUT_PATH="app")
         self.assertIn("file=app/new.py,line=3", out)
-        doc = json.loads(Path(self.td / ".gh" / "costlint.sarif").read_text(encoding="utf-8"))
+        doc = json.loads(Path(self.td / ".gh" / "spendlint.sarif").read_text(encoding="utf-8"))
         self.assertEqual({r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in doc["runs"][0]["results"]},
                          {"app/new.py"})
 
@@ -323,7 +323,7 @@ class TestAction(Base):
         self.make_pr()
         code, out, outputs, summary = self.run_action(GITHUB_BASE_REF="no-such-branch")
         self.assertEqual(code, 0)
-        self.assertIn("::warning title=costlint::Could not compute the pull request diff", out)
+        self.assertIn("::warning title=spendlint::Could not compute the pull request diff", out)
         self.assertEqual(outputs["findings-count"], "4")
         self.assertIn("full scan (pull request diff unavailable)", summary)
 

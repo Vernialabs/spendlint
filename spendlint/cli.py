@@ -1,12 +1,12 @@
 """Command line.
 
-    costlint [scan] PATH [--rules R-A,R-B] [--min-confidence 0.5] [--config FILE | --no-config]
+    spendlint [scan] PATH [--rules R-A,R-B] [--min-confidence 0.5] [--config FILE | --no-config]
                          [--diff pr.patch | --diff-base origin/main]
                          [--format text|jsonl|sarif|github] [--out FILE] [--sarif FILE] [--summary-md FILE]
                          [--fail-on none|info|warning]
-    costlint action                   run inside the GitHub Action (reads INPUT_* environment variables)
-    costlint telemetry status|show|on|off
-    costlint --version
+    spendlint action                   run inside the GitHub Action (reads INPUT_* environment variables)
+    spendlint telemetry status|show|on|off
+    spendlint --version
 
 Exit codes: 0 no findings at or above --fail-on, 1 findings at or above it, 2 usage or internal error.
 """
@@ -57,13 +57,13 @@ def run_scan(root, rules=None, min_confidence=None, config_path=None, use_config
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="costlint", description="Static cost-defect checks for LLM agent code.",
-                                 epilog="Other commands: `costlint action`, `costlint telemetry status|show|on|off`.")
-    ap.add_argument("--version", action="version", version=f"costlint {__version__}")
+    ap = argparse.ArgumentParser(prog="spendlint", description="Static cost-defect checks for LLM agent code.",
+                                 epilog="Other commands: `spendlint action`, `spendlint telemetry status|show|on|off`.")
+    ap.add_argument("--version", action="version", version=f"spendlint {__version__}")
     ap.add_argument("path", help="directory (or file) to scan")
     ap.add_argument("--rules", help="comma-separated rule ids to run (default: all)")
     ap.add_argument("--min-confidence", type=float, default=None, help="drop findings below this confidence (0-1)")
-    ap.add_argument("--config", help="config file (.costlint.yml or .costlint.json); default: look in PATH")
+    ap.add_argument("--config", help="config file (.spendlint.yml or .spendlint.json); default: look in PATH")
     ap.add_argument("--no-config", action="store_true", help="ignore any config file in PATH")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--diff", help="unified diff file; only report findings on added lines")
@@ -117,7 +117,7 @@ def scan_command(argv):
             write_text(a.summary_md, summary_markdown(findings, stats, diff_note=note), append=True)
         code = exit_code(findings, a.fail_on)
     except (UsageError, ConfigError, GitError, OSError) as e:
-        sys.stderr.write(f"costlint: error: {e}\n")
+        sys.stderr.write(f"spendlint: error: {e}\n")
         code = EXIT_ERROR
     telemetry.record("scan", timer.elapsed(), stats, findings, code)
     return code
@@ -144,5 +144,5 @@ def main(argv=None):
     except KeyboardInterrupt:
         return 130
     except Exception as e:  # never a traceback-shaped exit 1 that looks like "findings"
-        sys.stderr.write(f"costlint: internal error: {type(e).__name__}: {e}\n")
+        sys.stderr.write(f"spendlint: internal error: {type(e).__name__}: {e}\n")
         return EXIT_ERROR

@@ -1,4 +1,4 @@
-"""Run: python -m costlint.test_rules   (each case: source, language, expected rule ids)"""
+"""Run: python -m spendlint.test_rules   (each case: source, language, expected rule ids)"""
 import ast
 import sys
 import tempfile

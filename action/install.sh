@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Step 1 of action.yml: create (or reuse) a virtualenv under $RUNNER_TEMP and install costlint from this
-# action's own checkout ($GITHUB_ACTION_PATH). costlint has no runtime dependencies; pip only needs its
+# Step 1 of action.yml: create (or reuse) a virtualenv under $RUNNER_TEMP and install spendlint from this
+# action's own checkout ($GITHUB_ACTION_PATH). spendlint has no runtime dependencies; pip only needs its
 # build backend (setuptools). Writes `python=<venv interpreter>` to $GITHUB_OUTPUT.
 set -euo pipefail
 
 action_path="${GITHUB_ACTION_PATH:?GITHUB_ACTION_PATH is not set}"
-venv="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/costlint-venv"
+venv="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/spendlint-venv"
 
 py=""
 for candidate in python3 python; do
@@ -15,7 +15,7 @@ for candidate in python3 python; do
   fi
 done
 if [ -z "$py" ]; then
-  echo "::error title=costlint::Python 3.9 or newer is required on the runner; add actions/setup-python before this step."
+  echo "::error title=spendlint::Python 3.9 or newer is required on the runner; add actions/setup-python before this step."
   exit 2
 fi
 
@@ -25,5 +25,5 @@ fi
 if [ -x "$venv/bin/python" ]; then vpy="$venv/bin/python"; else vpy="$venv/Scripts/python.exe"; fi
 
 "$vpy" -I -m pip install --disable-pip-version-check --quiet "$action_path"
-"$vpy" -I -m costlint --version
+"$vpy" -I -m spendlint --version
 echo "python=$vpy" >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is not set}"

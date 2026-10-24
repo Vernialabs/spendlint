@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "costlint"
+name = "spendlint"
 dynamic = ["version"]
 description = "Static cost-defect checks for LLM agent code (Python and TypeScript), with SARIF and GitHub Actions output."
 readme = "README.md"
@@ -22,18 +22,18 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-# Full YAML for .costlint.yml. Without it a built-in reader handles the flat subset the config uses.
+# Full YAML for .spendlint.yml. Without it a built-in reader handles the flat subset the config uses.
 yaml = ["PyYAML>=5.1"]
 
 [project.scripts]
-costlint = "costlint.__main__:main"
+spendlint = "spendlint.__main__:main"
 
 [tool.setuptools]
-packages = ["costlint"]
+packages = ["spendlint"]
 
 [tool.setuptools.dynamic]
-version = { attr = "costlint.__version__" }
+version = { attr = "spendlint.__version__" }
 
 [project.urls]
-Homepage = "https://github.com/ishan121028/costlint"
-Issues = "https://github.com/ishan121028/costlint/issues"
+Homepage = "https://github.com/ishan121028/spendlint"
+Issues = "https://github.com/ishan121028/spendlint/issues"

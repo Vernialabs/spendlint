@@ -1,4 +1,4 @@
-"""`costlint action`: what the composite GitHub Action (action.yml) runs.
+"""`spendlint action`: what the composite GitHub Action (action.yml) runs.
 
 Inputs arrive as environment variables set by action.yml (composite actions do not export INPUT_* on
 their own, so the step maps each input explicitly):
@@ -9,9 +9,9 @@ their own, so the step maps each input explicitly):
     INPUT_FAIL_ON         none|info|warning (default none)
     INPUT_DIFF_MODE       auto|on|off (default auto: on for pull_request events)
     INPUT_DIFF_BASE       revision to compare with (default origin/$GITHUB_BASE_REF)
-    INPUT_SARIF_OUTPUT    where to write SARIF (default $RUNNER_TEMP/costlint.sarif)
-    INPUT_CONFIG          config file (default: .costlint.yml/.yaml/.json in the scanned directory)
-    INPUT_TELEMETRY       auto|on|off (default auto: off in CI unless COSTLINT_TELEMETRY=on)
+    INPUT_SARIF_OUTPUT    where to write SARIF (default $RUNNER_TEMP/spendlint.sarif)
+    INPUT_CONFIG          config file (default: .spendlint.yml/.yaml/.json in the scanned directory)
+    INPUT_TELEMETRY       auto|on|off (default auto: off in CI unless SPENDLINT_TELEMETRY=on)
 
 It prints one annotation per finding, appends a summary to $GITHUB_STEP_SUMMARY, writes `findings-count`
 and `sarif-path` to $GITHUB_OUTPUT, and exits 0 / 1 / 2 like the CLI (action/scan.sh records that as `exit-code`).
@@ -49,7 +49,7 @@ def main(argv=None, env=None):
     findings, stats, code = [], {}, EXIT_ERROR
     tel = _input(env, "TELEMETRY", "auto").lower()
     if tel in ("on", "off"):
-        os.environ["COSTLINT_TELEMETRY"] = tel  # the explicit Action input wins over the inherited environment
+        os.environ["SPENDLINT_TELEMETRY"] = tel  # the explicit Action input wins over the inherited environment
     try:
         workspace = Path(env.get("GITHUB_WORKSPACE") or os.getcwd())
         root = (workspace / _input(env, "PATH", ".")).resolve()
@@ -69,7 +69,7 @@ def main(argv=None, env=None):
         rules = parse_rules(_input(env, "RULES"))
         config = _input(env, "CONFIG")
         config = str(workspace / config) if config else None
-        sarif_path = Path(_input(env, "SARIF_OUTPUT") or Path(env.get("RUNNER_TEMP") or tempfile.gettempdir()) / "costlint.sarif")
+        sarif_path = Path(_input(env, "SARIF_OUTPUT") or Path(env.get("RUNNER_TEMP") or tempfile.gettempdir()) / "spendlint.sarif")
         if not sarif_path.is_absolute():
             sarif_path = workspace / sarif_path
 
@@ -86,7 +86,7 @@ def main(argv=None, env=None):
             except GitError as e:
                 if mode == "on":
                     raise
-                print(f"::warning title=costlint::Could not compute the pull request diff ({e}); scanning all files instead.")
+                print(f"::warning title=spendlint::Could not compute the pull request diff ({e}); scanning all files instead.")
                 note = "full scan (pull request diff unavailable)"
         try:  # annotations and SARIF need paths relative to the workspace (the repository root)
             prefix = root.relative_to(workspace.resolve()).as_posix() + "/"
@@ -98,7 +98,7 @@ def main(argv=None, env=None):
         for f in findings:
             f["path"] = prefix + f["path"]
 
-        print(f"costlint: {len(findings)} finding(s) in {stats['files']} file(s); {note}"
+        print(f"spendlint: {len(findings)} finding(s) in {stats['files']} file(s); {note}"
               + (f"; config {Path(config_used).name}" if config_used else ""))
         annotations = format_github(findings)
         if annotations:
@@ -110,7 +110,7 @@ def main(argv=None, env=None):
         code = exit_code(findings, fail_on)
         _set_outputs(env, **{"findings-count": len(findings), "sarif-path": sarif_path.as_posix()})
     except (UsageError, ConfigError, GitError, OSError) as e:
-        print(f"::error title=costlint::{_escape_data(e)}")
+        print(f"::error title=spendlint::{_escape_data(e)}")
         code = EXIT_ERROR
     sys.stdout.flush()
     telemetry.record("action", timer.elapsed(), stats, findings, code)

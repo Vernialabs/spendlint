@@ -1,4 +1,4 @@
-"""costlint engine: walk a checkout, run rules, optionally keep only findings on lines added by a diff."""
+"""spendlint engine: walk a checkout, run rules, optionally keep only findings on lines added by a diff."""
 import ast
 import fnmatch
 import json
@@ -16,8 +16,8 @@ SKIP_FILE = re.compile(r"(^test_.*\.py$|.*_test\.py$|.*\.(test|spec)\.[jt]sx?$|.
 PY_EXT = (".py",)
 TS_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs")
 MAX_BYTES = 400_000
-# `# costlint: ignore R-OUT-001 reason` (or `// costlint: ignore R-OUT-001, R-CACHE-003 reason` in TS/JS)
-SUPPRESS_RX = re.compile(r"(?:#|//|/\*)\s*costlint:\s*ignore\b(.*)", re.I)
+# `# spendlint: ignore R-OUT-001 reason` (or `// spendlint: ignore R-OUT-001, R-CACHE-003 reason` in TS/JS)
+SUPPRESS_RX = re.compile(r"(?:#|//|/\*)\s*spendlint:\s*ignore\b(.*)", re.I)
 RULE_ID_RX = re.compile(r"R-[A-Z]+-\d{3}")
 
 
@@ -60,7 +60,7 @@ def path_ignored(rel, patterns):
 
 
 def suppressed_rules(line_text):
-    """Rule ids named by an inline `costlint: ignore` comment on this line (empty set if none)."""
+    """Rule ids named by an inline `spendlint: ignore` comment on this line (empty set if none)."""
     m = SUPPRESS_RX.search(line_text)
     if not m:
         return set()
@@ -86,7 +86,7 @@ def is_suppressed(lines, rule_id, line):
 
 def scan_repo(root, rules=None, diff=None, ignore_paths=None, suppress=True):
     """Return (findings, stats). `diff` maps path -> set(added line numbers) to keep only PR-added lines.
-    `ignore_paths` are config globs; `suppress` honours inline `costlint: ignore R-XXX-000` comments."""
+    `ignore_paths` are config globs; `suppress` honours inline `spendlint: ignore R-XXX-000` comments."""
     findings, stats = [], {"files": 0, "py": 0, "ts": 0, "py_parse_errors": 0, "suppressed": 0, "ignored_files": 0}
     anthropic_sites, cache_control_seen = [], False
     texts = {}
@@ -205,4 +205,4 @@ def to_sarif(findings, tool_version=__version__):
                 "locations": [{"physicalLocation": {"artifactLocation": {"uri": f["path"]},
                                                     "region": {"startLine": f["line"], "endLine": f["end_line"]}}}]} for f in findings]
     return {"version": "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-            "runs": [{"tool": {"driver": {"name": "costlint", "version": tool_version, "rules": rules}}, "results": results}]}
+            "runs": [{"tool": {"driver": {"name": "spendlint", "version": tool_version, "rules": rules}}, "results": results}]}

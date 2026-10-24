@@ -2,11 +2,11 @@
 # Replay action.yml's steps locally the way a GitHub runner would, against a PR-shaped checkout
 # (no Docker, so no `act`).
 # Usage: replay_action.sh <action checkout> <workspace: a clone with a PR branch checked out> <empty run dir>
-# Env: BASE (default main), HEAD_BRANCH (default costlint-e2e), REPO_NAME (only fills GITHUB_REPOSITORY).
+# Env: BASE (default main), HEAD_BRANCH (default spendlint-e2e), REPO_NAME (only fills GITHUB_REPOSITORY).
 # Written for Git Bash on Windows (venv Scripts/ layout); on Linux/macOS change Lib/site-packages below.
 set -u
 ACTION=$1; WS=$2; RUN=$3
-BASE=${BASE:-main}; HEAD_BRANCH=${HEAD_BRANCH:-costlint-e2e}
+BASE=${BASE:-main}; HEAD_BRANCH=${HEAD_BRANCH:-spendlint-e2e}
 HARNESS=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$RUN/temp"
 
@@ -14,19 +14,19 @@ export GITHUB_ACTIONS=true CI=true
 export GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF="$BASE" GITHUB_HEAD_REF="$HEAD_BRANCH"
 export GITHUB_REPOSITORY="${REPO_NAME:-owner/repo}" GITHUB_WORKSPACE="$WS" GITHUB_ACTION_PATH="$ACTION"
 export RUNNER_TEMP="$RUN/temp" GITHUB_STEP_SUMMARY="$RUN/step_summary.md"
-export COSTLINT_DATA_DIR="$RUN/costlint-data"          # telemetry state + default log location for this run
+export SPENDLINT_DATA_DIR="$RUN/spendlint-data"          # telemetry state + default log location for this run
 
 # --- harness only: an offline venv. On GitHub, pip downloads setuptools into an isolated build env;
 # here no network is allowed, so the venv can see the base interpreter's setuptools+wheel and pip
 # is told not to use an index. install.sh reuses an existing venv, so the step itself is unchanged.
-python -m venv --system-site-packages "$RUNNER_TEMP/costlint-venv"
-cp "$HARNESS/audit_sitecustomize.py" "$RUNNER_TEMP/costlint-venv/Lib/site-packages/sitecustomize.py"  # Windows venv layout
+python -m venv --system-site-packages "$RUNNER_TEMP/spendlint-venv"
+cp "$HARNESS/audit_sitecustomize.py" "$RUNNER_TEMP/spendlint-venv/Lib/site-packages/sitecustomize.py"  # Windows venv layout
 export PIP_NO_INDEX=1 PIP_NO_BUILD_ISOLATION=0
 
 cd "$WS"   # GitHub runs every step with the workspace as the working directory
 
 echo "=== step 1: install (action/install.sh)"
-GITHUB_OUTPUT="$RUN/out_install" COSTLINT_AUDIT_LOG="$RUN/audit_install.log" bash "$ACTION/action/install.sh"
+GITHUB_OUTPUT="$RUN/out_install" SPENDLINT_AUDIT_LOG="$RUN/audit_install.log" bash "$ACTION/action/install.sh"
 echo "install.sh exit: $?"
 echo "outputs: $(cat "$RUN/out_install")"
 PY=$(sed -n 's/^python=//p' "$RUN/out_install")
@@ -34,7 +34,7 @@ PY=$(sed -n 's/^python=//p' "$RUN/out_install")
 # step 2 + step 4 of action.yml, with action.yml's input defaults; extra NAME=value args override them
 scan() {
   local name=$1; shift
-  env GITHUB_OUTPUT="$RUN/out_scan_$name" COSTLINT_PYTHON="$PY" COSTLINT_AUDIT_LOG="$RUN/audit_scan_$name.log" \
+  env GITHUB_OUTPUT="$RUN/out_scan_$name" SPENDLINT_PYTHON="$PY" SPENDLINT_AUDIT_LOG="$RUN/audit_scan_$name.log" \
       INPUT_PATH=. INPUT_RULES= INPUT_MIN_CONFIDENCE= INPUT_FAIL_ON=none INPUT_DIFF_MODE=auto INPUT_DIFF_BASE= \
       INPUT_CONFIG= INPUT_SARIF_OUTPUT= INPUT_TELEMETRY=auto "$@" \
       bash "$ACTION/action/scan.sh" > "$RUN/log_scan_$name.txt" 2>&1

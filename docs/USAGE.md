@@ -1,4 +1,4 @@
-# costlint
+# spendlint
 
 Static checks for cost defects in LLM agent code: missing prompt caching, volatile values in system prompts,
 unbounded agent loops and retries, indented JSON in prompts, one-at-a-time embeddings, uncapped output, and
@@ -14,25 +14,25 @@ on repositories they were never tuned on were real patterns. Treat findings as r
 From a checkout (there is no PyPI package yet):
 
 ```bash
-pip install .            # provides the `costlint` command
-pip install ".[yaml]"    # optional: full YAML support for .costlint.yml via PyYAML
-costlint --version
+pip install .            # provides the `spendlint` command
+pip install ".[yaml]"    # optional: full YAML support for .spendlint.yml via PyYAML
+spendlint --version
 ```
 
-Python 3.9 or newer. `python -m costlint ...` works the same as `costlint ...`.
+Python 3.9 or newer. `python -m spendlint ...` works the same as `spendlint ...`.
 
 ## Scan
 
 ```bash
-costlint .                                     # text report
-costlint . --format jsonl                      # one JSON object per finding
-costlint . --format sarif --out costlint.sarif
-costlint . --format github                     # GitHub workflow commands (::warning file=...,line=...::...)
-costlint . --diff-base origin/main             # only lines added since the merge base with origin/main
-costlint . --diff pr.patch                     # only lines added by a unified diff
-costlint . --sarif out.sarif --summary-md "$GITHUB_STEP_SUMMARY"   # extra outputs alongside the main one
-costlint . --rules R-CACHE-003,R-CTX-008 --min-confidence 0.5
-costlint . --fail-on warning                   # exit 1 if any warning-level finding remains
+spendlint .                                     # text report
+spendlint . --format jsonl                      # one JSON object per finding
+spendlint . --format sarif --out spendlint.sarif
+spendlint . --format github                     # GitHub workflow commands (::warning file=...,line=...::...)
+spendlint . --diff-base origin/main             # only lines added since the merge base with origin/main
+spendlint . --diff pr.patch                     # only lines added by a unified diff
+spendlint . --sarif out.sarif --summary-md "$GITHUB_STEP_SUMMARY"   # extra outputs alongside the main one
+spendlint . --rules R-CACHE-003,R-CTX-008 --min-confidence 0.5
+spendlint . --fail-on warning                   # exit 1 if any warning-level finding remains
 ```
 
 ### Exit codes
@@ -45,7 +45,7 @@ costlint . --fail-on warning                   # exit 1 if any warning-level fin
 
 ### Config file
 
-costlint looks for `.costlint.yml`, `.costlint.yaml` or `.costlint.json` in the scanned directory
+spendlint looks for `.spendlint.yml`, `.spendlint.yaml` or `.spendlint.json` in the scanned directory
 (`--config FILE` to point elsewhere, `--no-config` to ignore it). Command-line flags win over the file.
 
 ```yaml
@@ -63,18 +63,18 @@ silently disable nothing.
 ### Inline suppression
 
 ```python
-SYSTEM_PROMPT = f"Today: {now}"  # costlint: ignore R-CACHE-003 rounded to the day upstream
+SYSTEM_PROMPT = f"Today: {now}"  # spendlint: ignore R-CACHE-003 rounded to the day upstream
 
-# costlint: ignore R-OUT-001, R-MODEL-001 capped by the gateway
+# spendlint: ignore R-OUT-001, R-MODEL-001 capped by the gateway
 resp = client.chat.completions.create(model="gpt-4o", messages=m)
 ```
 
 ```ts
-// costlint: ignore R-CACHE-003 cache disabled for this call
+// spendlint: ignore R-CACHE-003 cache disabled for this call
 const systemPrompt = `Now: ${new Date().toISOString()}`;
 ```
 
-The comment must name the rule id(s); a bare `costlint: ignore` suppresses nothing. It applies on the finding's first
+The comment must name the rule id(s); a bare `spendlint: ignore` suppresses nothing. It applies on the finding's first
 line or on a comment-only line directly above it. Text after the ids is the reason. Suppressed findings are counted in
 the text report and the step summary. Repository-level findings (R-CACHE-001) are turned off with `disable` instead.
 
@@ -100,12 +100,12 @@ See `docs/ACTION.md`.
 ## Telemetry
 
 Local CLI runs record coarse, anonymous usage counts to a local log after a one-time notice; CI is off unless you opt
-in; nothing is sent anywhere unless `COSTLINT_TELEMETRY_URL` is set. No code, paths or names are ever recorded.
-`costlint telemetry status|show|off|on`, `COSTLINT_TELEMETRY=off` or `DO_NOT_TRACK=1`. Full schema: `docs/telemetry.md`.
+in; nothing is sent anywhere unless `SPENDLINT_TELEMETRY_URL` is set. No code, paths or names are ever recorded.
+`spendlint telemetry status|show|off|on`, `SPENDLINT_TELEMETRY=off` or `DO_NOT_TRACK=1`. Full schema: `docs/telemetry.md`.
 
 ## Tests
 
 ```bash
-python -m costlint.test_rules                                   # 63 rule cases
-python -m unittest costlint.test_cli costlint.test_telemetry    # CLI, config, action, telemetry
+python -m spendlint.test_rules                                   # 63 rule cases
+python -m unittest spendlint.test_cli spendlint.test_telemetry    # CLI, config, action, telemetry
 ```

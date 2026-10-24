@@ -1,4 +1,4 @@
-"""Repository config: `.costlint.yml` / `.costlint.yaml` / `.costlint.json`.
+"""Repository config: `.spendlint.yml` / `.spendlint.yaml` / `.spendlint.json`.
 
     disable: [R-OUT-001, R-MODEL-001]     # rules to turn off
     ignore_paths:                         # globs, relative to the scanned path
@@ -6,7 +6,7 @@
       - generated/
     min_confidence: 0.5
 
-YAML is read with PyYAML when it is installed (`pip install costlint[yaml]`); otherwise a small built-in
+YAML is read with PyYAML when it is installed (`pip install spendlint[yaml]`); otherwise a small built-in
 reader handles the flat subset above (scalars, `[a, b]` lists and `- item` lists). Nothing else is required.
 """
 import json
@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .meta import RULES
 
-CONFIG_NAMES = (".costlint.yml", ".costlint.yaml", ".costlint.json")
+CONFIG_NAMES = (".spendlint.yml", ".spendlint.yaml", ".spendlint.json")
 KNOWN_KEYS = {"disable", "ignore_paths", "min_confidence"}
 
 
@@ -78,7 +78,7 @@ def parse_simple_yaml(text):
             data[current].append(_scalar(stripped[2:]))
             continue
         if line[0] in " \t" or ":" not in line:
-            raise ConfigError(f"line {n}: unsupported YAML (install PyYAML or use .costlint.json)")
+            raise ConfigError(f"line {n}: unsupported YAML (install PyYAML or use .spendlint.json)")
         key, _, value = line.partition(":")
         key, value = key.strip(), value.strip()
         if value.startswith("[") and value.endswith("]"):

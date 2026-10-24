@@ -1,6 +1,6 @@
-# Example workflow: copy to .github/workflows/costlint.yml in the repository you want checked.
-# Pin to a release tag or commit SHA of ishan121028/costlint.
-name: costlint
+# Example workflow: copy to .github/workflows/spendlint.yml in the repository you want checked.
+# Pin to a release tag or commit SHA of ishan121028/spendlint.
+name: spendlint
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  costlint:
+  spendlint:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: costlint
-        id: costlint
-        uses: ishan121028/costlint@v0
+      - name: spendlint
+        id: spendlint
+        uses: ishan121028/spendlint@v0
         with:
           path: .
           fail-on: none            # none | info | warning
@@ -31,5 +31,5 @@ jobs:
 
       - name: Use the outputs
         env:
-          FINDINGS: ${{ steps.costlint.outputs.findings-count }}
-        run: echo "costlint reported $FINDINGS finding(s)"
+          FINDINGS: ${{ steps.spendlint.outputs.findings-count }}
+        run: echo "spendlint reported $FINDINGS finding(s)"

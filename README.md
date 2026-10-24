@@ -1,4 +1,4 @@
-# costlint
+# spendlint
 
 Static checks for the code patterns that quietly inflate LLM bills in agent code: missing prompt caching,
 system prompts that change on every call, unbounded agent loops and retries, cost accounting that ignores
@@ -13,32 +13,32 @@ and optional SARIF for code scanning. Your code never leaves the runner.
 ## Quick start: GitHub Action
 
 ```yaml
-name: costlint
+name: spendlint
 on: pull_request
 permissions:
   contents: read
 jobs:
-  costlint:
+  spendlint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: ishan121028/costlint@v0
+      - uses: ishan121028/spendlint@v0
 ```
 
 Every input (rules, confidence threshold, `fail-on`, diff mode, SARIF upload, telemetry) is described in
 [docs/ACTION.md](docs/ACTION.md). A complete example is in
-[examples/.github/workflows/costlint.yml](examples/.github/workflows/costlint.yml).
+[examples/.github/workflows/spendlint.yml](examples/.github/workflows/spendlint.yml).
 
 ## Quick start: CLI
 
 ```bash
-pip install git+https://github.com/ishan121028/costlint
-costlint .                                    # scan a checkout
-costlint . --diff pr.patch --fail-on warning  # only lines a diff adds; exit 1 on warnings
-costlint . --format sarif --out costlint.sarif
+pip install git+https://github.com/ishan121028/spendlint
+spendlint .                                    # scan a checkout
+spendlint . --diff pr.patch --fail-on warning  # only lines a diff adds; exit 1 on warnings
+spendlint . --format sarif --out spendlint.sarif
 ```
 
-Exit codes, the `.costlint.yml` config file and inline `# costlint: ignore R-XXX-000 reason` comments are in
+Exit codes, the `.spendlint.yml` config file and inline `# spendlint: ignore R-XXX-000 reason` comments are in
 [docs/USAGE.md](docs/USAGE.md).
 
 ## What it checks
@@ -68,15 +68,15 @@ prompts, not verdicts.
 
 ## Telemetry
 
-costlint records coarse usage counts (version, runtime, file counts by language, finding counts per rule) to a
-local file you can read with `costlint telemetry show`. It never records code, file names, paths or repository
-names. It is off in CI unless you turn it on, and nothing is sent anywhere unless `COSTLINT_TELEMETRY_URL` is set.
-Turn it off with `costlint telemetry off`, `COSTLINT_TELEMETRY=off` or `DO_NOT_TRACK=1`. Full schema:
+spendlint records coarse usage counts (version, runtime, file counts by language, finding counts per rule) to a
+local file you can read with `spendlint telemetry show`. It never records code, file names, paths or repository
+names. It is off in CI unless you turn it on, and nothing is sent anywhere unless `SPENDLINT_TELEMETRY_URL` is set.
+Turn it off with `spendlint telemetry off`, `SPENDLINT_TELEMETRY=off` or `DO_NOT_TRACK=1`. Full schema:
 [docs/telemetry.md](docs/telemetry.md).
 
 ## License
 
-costlint is **source-available**, not open source. It is licensed under the
+spendlint is **source-available**, not open source. It is licensed under the
 [PolyForm Small Business License 1.0.0](LICENSE): free for individuals, and for companies with fewer than 100
 people and under US$1 million in annual revenue (2019 dollars; the license has the exact terms). Larger
 organisations need a commercial license; see [COMMERCIAL.md](COMMERCIAL.md).
@@ -86,5 +86,5 @@ organisations need a commercial license; see [COMMERCIAL.md](COMMERCIAL.md).
 See [CONTRIBUTING.md](CONTRIBUTING.md). Run the tests with:
 
 ```bash
-python -m costlint.test_rules && python -m costlint.test_cli && python -m costlint.test_telemetry
+python -m spendlint.test_rules && python -m spendlint.test_cli && python -m spendlint.test_telemetry
 ```
