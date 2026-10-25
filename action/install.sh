@@ -9,13 +9,13 @@ venv="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/spendlint-venv"
 
 py=""
 for candidate in python3 python; do
-  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
     py="$candidate"
     break
   fi
 done
 if [ -z "$py" ]; then
-  echo "::error title=spendlint::Python 3.9 or newer is required on the runner; add actions/setup-python before this step."
+  echo "::error title=spendlint::Python 3.11 or newer is required on the runner; add actions/setup-python before this step."
   exit 2
 fi
 

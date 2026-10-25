@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Requires Python 3.11 or newer (3.9 and 3.10 are end of life). CI covers 3.11 and 3.14 on Linux, macOS and Windows.
+- Tests moved to `tests/` and run with pytest; they no longer ship inside the package.
+- Development tooling: uv with a committed `uv.lock`, ruff (lint and format), pyright, pre-commit, coverage,
+  actionlint and zizmor in CI, and weekly grouped Dependabot updates.
+
 ## 0.1.4 (2026-10-24)
 
 - Fixed the GitHub Action: `action.yml` from 0.1.2 and 0.1.3 did not parse, so `vernialabs/spendlint@v0` failed

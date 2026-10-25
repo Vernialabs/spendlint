@@ -47,7 +47,7 @@ are not shown. A full example with every input is in `examples/.github/workflows
 
 ## What the steps do
 
-1. `action/install.sh`: finds Python 3.9+ (`python3`, then `python`), creates or reuses `$RUNNER_TEMP/spendlint-venv`
+1. `action/install.sh`: finds Python 3.11+ (`python3`, then `python`), creates or reuses `$RUNNER_TEMP/spendlint-venv`
    (a venv avoids PEP 668 errors on Ubuntu 24.04's system Python), runs `pip install $GITHUB_ACTION_PATH`, prints
    `spendlint --version`, writes `python=<venv python>` to `$GITHUB_OUTPUT`. pip downloads the setuptools build
    backend from PyPI in its isolated build environment; spendlint itself has no runtime dependencies.
@@ -88,7 +88,7 @@ Same as the CLI (`docs/USAGE.md`): `.spendlint.yml` with `disable`, `ignore_path
 ## Runners
 
 Written for `ubuntu-latest`. `windows-latest` and `macos-latest` should work (bash is available on all three and the
-install script handles the Windows venv layout) but have not been run. Self-hosted runners need Python 3.9+ and git,
+install script handles the Windows venv layout) but have not been run. Self-hosted runners need Python 3.11+ and git,
 and network access to PyPI for pip's build backend.
 
 ## Running the steps locally

@@ -1,0 +1,8 @@
+# zizmor settings. Third-party actions must be pinned to a full SHA; our own action may be referenced by tag
+# in user-facing examples (vernialabs/spendlint@v0 is the documented way to use it).
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "vernialabs/*": ref-pin
+        "*": hash-pin

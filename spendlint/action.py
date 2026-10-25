@@ -16,6 +16,7 @@ their own, so the step maps each input explicitly):
 It prints one annotation per finding, appends a summary to $GITHUB_STEP_SUMMARY, writes `findings-count`
 and `sarif-path` to $GITHUB_OUTPUT, and exits 0 / 1 / 2 like the CLI (action/scan.sh records that as `exit-code`).
 """
+
 import os
 import sys
 import tempfile
@@ -69,7 +70,9 @@ def main(argv=None, env=None):
         rules = parse_rules(_input(env, "RULES"))
         config = _input(env, "CONFIG")
         config = str(workspace / config) if config else None
-        sarif_path = Path(_input(env, "SARIF_OUTPUT") or Path(env.get("RUNNER_TEMP") or tempfile.gettempdir()) / "spendlint.sarif")
+        sarif_path = Path(
+            _input(env, "SARIF_OUTPUT") or Path(env.get("RUNNER_TEMP") or tempfile.gettempdir()) / "spendlint.sarif"
+        )
         if not sarif_path.is_absolute():
             sarif_path = workspace / sarif_path
 
@@ -81,12 +84,16 @@ def main(argv=None, env=None):
         if use_diff:
             try:
                 if not base:
-                    raise GitError("diff-mode is on but there is no base: set diff-base, or run on a pull_request event")
+                    raise GitError(
+                        "diff-mode is on but there is no base: set diff-base, or run on a pull_request event"
+                    )
                 diff, note = added_lines(root, base, merge_commit=(event == "pull_request"), fetch=True)
             except GitError as e:
                 if mode == "on":
                     raise
-                print(f"::warning title=spendlint::Could not compute the pull request diff ({e}); scanning all files instead.")
+                print(
+                    f"::warning title=spendlint::Could not compute the pull request diff ({e}); scanning all files instead."
+                )
                 note = "full scan (pull request diff unavailable)"
         try:  # annotations and SARIF need paths relative to the workspace (the repository root)
             prefix = root.relative_to(workspace.resolve()).as_posix() + "/"
@@ -98,8 +105,10 @@ def main(argv=None, env=None):
         for f in findings:
             f["path"] = prefix + f["path"]
 
-        print(f"spendlint: {len(findings)} finding(s) in {stats['files']} file(s); {note}"
-              + (f"; config {Path(config_used).name}" if config_used else ""))
+        print(
+            f"spendlint: {len(findings)} finding(s) in {stats['files']} file(s); {note}"
+            + (f"; config {Path(config_used).name}" if config_used else "")
+        )
         annotations = format_github(findings)
         if annotations:
             print(annotations)

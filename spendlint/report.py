@@ -1,4 +1,5 @@
 """Output formats (text, jsonl, sarif, github workflow commands), the Markdown step summary, and exit codes."""
+
 import json
 
 from .meta import RULES
@@ -19,9 +20,14 @@ def exit_code(findings, fail_on):
 
 
 def format_text(findings, stats):
-    lines = [f"{f['path']}:{f['line']}  {f['rule_id']}  [{f['severity']}, conf {f['confidence']}]  {f['detail']}" for f in findings]
-    lines.append(f"-- {len(findings)} finding(s); scanned {stats['files']} files ({stats['py']} py, {stats['ts']} ts)"
-                 + (f"; {stats['suppressed']} suppressed inline" if stats.get("suppressed") else ""))
+    lines = [
+        f"{f['path']}:{f['line']}  {f['rule_id']}  [{f['severity']}, conf {f['confidence']}]  {f['detail']}"
+        for f in findings
+    ]
+    lines.append(
+        f"-- {len(findings)} finding(s); scanned {stats['files']} files ({stats['py']} py, {stats['ts']} ts)"
+        + (f"; {stats['suppressed']} suppressed inline" if stats.get("suppressed") else "")
+    )
     return "\n".join(lines)
 
 
@@ -46,8 +52,14 @@ def format_github(findings):
     out = []
     for f in findings:
         level = "warning" if f["severity"] == "warning" else "notice"
-        props = ",".join([f"file={_escape_prop(f['path'])}", f"line={f['line']}", f"endLine={max(f['end_line'], f['line'])}",
-                          f"title={_escape_prop(f['rule_id'] + ' ' + f['rule_name'])}"])
+        props = ",".join(
+            [
+                f"file={_escape_prop(f['path'])}",
+                f"line={f['line']}",
+                f"endLine={max(f['end_line'], f['line'])}",
+                f"title={_escape_prop(f['rule_id'] + ' ' + f['rule_name'])}",
+            ]
+        )
         msg = f"{f['detail']} (confidence {f['confidence']}). {f['recommended_action']}"
         out.append(f"::{level} {props}::{_escape_data(msg)}")
     return "\n".join(out)
@@ -80,8 +92,12 @@ def summary_markdown(findings, stats, title="spendlint", diff_note=None):
         md.append(f"| {rid} | {_cell(RULES[rid]['name'])} | {RULES[rid]['severity']} | {n} |")
     md += ["", "| Severity | Rule | Location | Confidence | Detail |", "|---|---|---|---|---|"]
     for f in findings[:SUMMARY_MAX_ROWS]:
-        md.append(f"| {f['severity']} | {f['rule_id']} | `{_cell(f['path'])}:{f['line']}` | {f['confidence']} | {_cell(f['detail'])} |")
+        md.append(
+            f"| {f['severity']} | {f['rule_id']} | `{_cell(f['path'])}:{f['line']}` | {f['confidence']} | {_cell(f['detail'])} |"
+        )
     if len(findings) > SUMMARY_MAX_ROWS:
-        md.append(f"\n_{len(findings) - SUMMARY_MAX_ROWS} more finding(s) not shown; see the SARIF file or annotations._")
+        md.append(
+            f"\n_{len(findings) - SUMMARY_MAX_ROWS} more finding(s) not shown; see the SARIF file or annotations._"
+        )
     md.append("")
     return "\n".join(md)

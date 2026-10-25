@@ -106,5 +106,6 @@ license has the exact terms). Larger organisations need a commercial license; se
 See [CONTRIBUTING.md](https://github.com/vernialabs/spendlint/blob/main/CONTRIBUTING.md). Run the tests with:
 
 ```bash
-python -m spendlint.test_rules && python -m spendlint.test_cli && python -m spendlint.test_telemetry
+uv sync --group dev
+uv run pytest
 ```

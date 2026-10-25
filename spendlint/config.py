@@ -9,6 +9,7 @@
 YAML is read with PyYAML when it is installed (`pip install spendlint[yaml]`); otherwise a small built-in
 reader handles the flat subset above (scalars, `[a, b]` lists and `- item` lists). Nothing else is required.
 """
+
 import json
 from pathlib import Path
 
@@ -123,7 +124,9 @@ def validate(data, name="config"):
         raise ConfigError(f"{name}: top level must be a mapping")
     unknown = set(data) - KNOWN_KEYS
     if unknown:
-        raise ConfigError(f"{name}: unknown key(s) {', '.join(sorted(unknown))}; expected {', '.join(sorted(KNOWN_KEYS))}")
+        raise ConfigError(
+            f"{name}: unknown key(s) {', '.join(sorted(unknown))}; expected {', '.join(sorted(KNOWN_KEYS))}"
+        )
     disable = data.get("disable") or []
     if isinstance(disable, str):
         disable = [x for x in disable.replace(",", " ").split() if x]

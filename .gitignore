@@ -12,3 +12,9 @@ venv/
 
 # local publishing notes, never published
 PUBLISH_CHECKLIST.md
+
+# test and tool caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml

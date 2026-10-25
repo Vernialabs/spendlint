@@ -1,28 +1,30 @@
-"""Run: python -m unittest spendlint.test_cli   (CLI flags, config, suppression, formats, exit codes, git diff)"""
+"""CLI flags, config, suppression, formats, exit codes and git diff. Run with `pytest tests/test_cli.py`."""
+
 import io
 import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from . import __version__
-from .action import main as action_main
-from .cli import main
-from .config import ConfigError, load_config, parse_simple_yaml
-from .gitdiff import added_lines
-from .scan import scan_repo, suppressed_rules
+from spendlint import __version__
+from spendlint.action import main as action_main
+from spendlint.cli import main
+from spendlint.config import ConfigError, load_config, parse_simple_yaml
+from spendlint.gitdiff import added_lines
+from spendlint.scan import scan_repo, suppressed_rules
 
 # R-CTX-008 (info) on line 2, R-CACHE-003 (warning) on line 4
-SRC = ("import json\n"
-       "p = f'Data: {json.dumps(d, indent=2)}'\n"
-       "from datetime import datetime\n"
-       "SYSTEM_PROMPT = f'You are helpful. Now: {datetime.now()}'\n")
+SRC = (
+    "import json\n"
+    "p = f'Data: {json.dumps(d, indent=2)}'\n"
+    "from datetime import datetime\n"
+    "SYSTEM_PROMPT = f'You are helpful. Now: {datetime.now()}'\n"
+)
 
 
 def run_cli(*args):
@@ -61,10 +63,10 @@ class TestVersionAndExitCodes(Base):
 
     def test_fail_on_levels(self):
         self.write("a.py", SRC)
-        self.assertEqual(run_cli(str(self.td))[0], 0)                                   # default none
+        self.assertEqual(run_cli(str(self.td))[0], 0)  # default none
         self.assertEqual(run_cli(str(self.td), "--fail-on", "none")[0], 0)
         self.assertEqual(run_cli(str(self.td), "--fail-on", "info")[0], 1)
-        self.assertEqual(run_cli(str(self.td), "--fail-on", "warning")[0], 1)            # R-CACHE-003 is a warning
+        self.assertEqual(run_cli(str(self.td), "--fail-on", "warning")[0], 1)  # R-CACHE-003 is a warning
         self.assertEqual(run_cli(str(self.td), "--fail-on", "warning", "--rules", "R-CTX-008")[0], 0)  # info only
         self.assertEqual(run_cli(str(self.td), "--fail-on", "info", "--rules", "R-CTX-008")[0], 1)
 
@@ -95,16 +97,18 @@ class TestConfig(Base):
     def test_yaml_disable_ignore_min_confidence(self):
         self.write("a.py", SRC)
         self.write("legacy/b.py", SRC)
-        self.write(".spendlint.yml", "# comment\ndisable: [R-CTX-008]\nignore_paths:\n  - legacy/*\nmin_confidence: 0.1\n")
-        code, out, _ = run_cli(str(self.td), "--format", "jsonl")
-        found = [json.loads(l) for l in out.splitlines()]
+        self.write(
+            ".spendlint.yml", "# comment\ndisable: [R-CTX-008]\nignore_paths:\n  - legacy/*\nmin_confidence: 0.1\n"
+        )
+        _code, out, _ = run_cli(str(self.td), "--format", "jsonl")
+        found = [json.loads(ln) for ln in out.splitlines()]
         self.assertEqual([(f["rule_id"], f["path"]) for f in found], [("R-CACHE-003", "a.py")])
 
     def test_json_config_and_explicit_path(self):
         self.write("a.py", SRC)
         cfg = self.write("cfg/spendlint.json", json.dumps({"disable": ["R-CACHE-003"]}))
         _, out, _ = run_cli(str(self.td), "--config", str(cfg), "--format", "jsonl")
-        self.assertEqual({json.loads(l)["rule_id"] for l in out.splitlines()}, {"R-CTX-008"})
+        self.assertEqual({json.loads(ln)["rule_id"] for ln in out.splitlines()}, {"R-CTX-008"})
 
     def test_min_confidence_from_config_and_flag_override(self):
         self.write("a.py", SRC)
@@ -125,13 +129,15 @@ class TestConfig(Base):
         self.assertEqual(run_cli(str(self.td), "--fail-on", "info")[0], 0)
 
     def test_simple_yaml_reader(self):
-        self.assertEqual(parse_simple_yaml("disable:\n  - R-OUT-001\n  - 'R-MODEL-001'  # c\nmin_confidence: 0.5\n"),
-                         {"disable": ["R-OUT-001", "R-MODEL-001"], "min_confidence": 0.5})
+        self.assertEqual(
+            parse_simple_yaml("disable:\n  - R-OUT-001\n  - 'R-MODEL-001'  # c\nmin_confidence: 0.5\n"),
+            {"disable": ["R-OUT-001", "R-MODEL-001"], "min_confidence": 0.5},
+        )
         with self.assertRaises(ConfigError):
             parse_simple_yaml("nested:\n  key: value\n")
 
     def test_validation(self):
-        for text in ('{"surprise": 1}', '{"min_confidence": 2}', '{"ignore_paths": [1]}', '[]'):
+        for text in ('{"surprise": 1}', '{"min_confidence": 2}', '{"ignore_paths": [1]}', "[]"):
             p = self.write(".spendlint.json", text)
             with self.assertRaises(ConfigError):
                 load_config(p)
@@ -139,10 +145,13 @@ class TestConfig(Base):
 
 class TestSuppression(Base):
     def test_same_line_and_line_above(self):
-        self.write("a.py", "import json\n"
-                           "p = f'Data: {json.dumps(d, indent=2)}'  # spendlint: ignore R-CTX-008 debug only\n"
-                           "# spendlint: ignore R-CACHE-003 day-level is fine here\n"
-                           "SYSTEM_PROMPT = f'Now: {datetime.now()}'\n")
+        self.write(
+            "a.py",
+            "import json\n"
+            "p = f'Data: {json.dumps(d, indent=2)}'  # spendlint: ignore R-CTX-008 debug only\n"
+            "# spendlint: ignore R-CACHE-003 day-level is fine here\n"
+            "SYSTEM_PROMPT = f'Now: {datetime.now()}'\n",
+        )
         findings, stats = scan_repo(self.td)
         self.assertEqual(findings, [])
         self.assertEqual(stats["suppressed"], 2)
@@ -156,13 +165,18 @@ class TestSuppression(Base):
         self.assertEqual(len(scan_repo(self.td)[0]), 1)
 
     def test_typescript_comment(self):
-        self.write("a.ts", "// spendlint: ignore R-CACHE-003 rounded upstream\n"
-                           "const systemPrompt = `You are X. Today is ${new Date().toISOString()}`;\n")
+        self.write(
+            "a.ts",
+            "// spendlint: ignore R-CACHE-003 rounded upstream\n"
+            "const systemPrompt = `You are X. Today is ${new Date().toISOString()}`;\n",
+        )
         self.assertEqual(scan_repo(self.td)[0], [])
 
     def test_parse_list_and_reason(self):
-        self.assertEqual(suppressed_rules("x  # spendlint: ignore R-OUT-001, R-CTX-008 reason R-LOOP-001"),
-                         {"R-OUT-001", "R-CTX-008"})
+        self.assertEqual(
+            suppressed_rules("x  # spendlint: ignore R-OUT-001, R-CTX-008 reason R-LOOP-001"),
+            {"R-OUT-001", "R-CTX-008"},
+        )
 
 
 class TestFormats(Base):
@@ -171,13 +185,13 @@ class TestFormats(Base):
         _, out, _ = run_cli(str(self.td), "--format", "github")
         lines = out.splitlines()
         self.assertEqual(len(lines), 2)
-        warn = [l for l in lines if l.startswith("::warning ")][0]
+        warn = next(ln for ln in lines if ln.startswith("::warning "))
         self.assertIn("file=src/a.py,line=4,endLine=4,title=R-CACHE-003 ", warn)
-        note = [l for l in lines if l.startswith("::notice ")][0]
+        note = next(ln for ln in lines if ln.startswith("::notice "))
         self.assertIn("file=src/a.py,line=2", note)
-        for l in lines:  # message part has no raw newlines and the property part no raw ':' or ','
-            props = l.split("::")[1]
-            self.assertNotIn("\n", l)
+        for ln in lines:  # message part has no raw newlines and the property part no raw ':' or ','
+            props = ln.split("::")[1]
+            self.assertNotIn("\n", ln)
             self.assertEqual(props.split(" ", 1)[1].count(":"), 0)
 
     def test_summary_markdown_appends(self):
@@ -210,17 +224,20 @@ class TestFormats(Base):
 @unittest.skipUnless(shutil.which("git"), "git not installed")
 class TestGitDiff(Base):
     def git(self, *args):
-        subprocess.run(["git", "-C", str(self.td), "-c", "user.email=t@example.invalid", "-c", "user.name=t", *args],
-                       check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(self.td), "-c", "user.email=t@example.invalid", "-c", "user.name=t", *args],
+            check=True,
+            capture_output=True,
+        )
 
     def test_diff_base_reports_only_added_lines(self):
-        self.write("pkg/old.py", SRC)                       # pre-existing findings: must not be reported
+        self.write("pkg/old.py", SRC)  # pre-existing findings: must not be reported
         self.git("init", "-q", "-b", "main")
         self.git("add", ".")
         self.git("commit", "-q", "-m", "base")
         self.git("checkout", "-q", "-b", "feature")
-        self.write("pkg/new.py", "x = 1\n" + SRC)            # two new findings, on lines 3 and 5
-        self.write("pkg/old.py", SRC + "y = 2\n")            # a clean added line in a file with old findings
+        self.write("pkg/new.py", "x = 1\n" + SRC)  # two new findings, on lines 3 and 5
+        self.write("pkg/old.py", SRC + "y = 2\n")  # a clean added line in a file with old findings
         self.git("add", ".")
         self.git("commit", "-q", "-m", "change")
         _, out, _ = run_cli(str(self.td), "--diff-base", "main", "--format", "jsonl")
@@ -228,7 +245,7 @@ class TestGitDiff(Base):
         self.assertEqual(got, [("pkg/new.py", 3), ("pkg/new.py", 5)])
         # scanning a subdirectory: paths stay relative to it
         _, out, _ = run_cli(str(self.td / "pkg"), "--diff-base", "main", "--format", "jsonl")
-        self.assertEqual(sorted(json.loads(l)["path"] for l in out.splitlines()), ["new.py", "new.py"])
+        self.assertEqual(sorted(json.loads(ln)["path"] for ln in out.splitlines()), ["new.py", "new.py"])
 
     def test_merge_commit_mode(self):
         self.write("old.py", SRC)
@@ -240,7 +257,7 @@ class TestGitDiff(Base):
         self.git("add", ".")
         self.git("commit", "-q", "-m", "change")
         self.git("checkout", "-q", "--detach", "main")
-        self.git("merge", "-q", "--no-ff", "-m", "merge", "feature")   # like refs/pull/N/merge
+        self.git("merge", "-q", "--no-ff", "-m", "merge", "feature")  # like refs/pull/N/merge
         diff, note = added_lines(self.td, "main", merge_commit=True)
         self.assertEqual(set(diff), {"new.py"})
         self.assertIn("merge commit", note)
@@ -258,15 +275,18 @@ class TestAction(Base):
     """`spendlint action` as action.yml runs it, against a local git repository standing in for a PR checkout."""
 
     def git(self, *args):
-        subprocess.run(["git", "-C", str(self.td), "-c", "user.email=t@example.invalid", "-c", "user.name=t", *args],
-                       check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(self.td), "-c", "user.email=t@example.invalid", "-c", "user.name=t", *args],
+            check=True,
+            capture_output=True,
+        )
 
     def make_pr(self):
         self.write("app/old.py", SRC)
         self.git("init", "-q", "-b", "main")
         self.git("add", ".")
         self.git("commit", "-q", "-m", "base")
-        self.git("update-ref", "refs/remotes/origin/main", "HEAD")   # what actions/checkout leaves behind
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")  # what actions/checkout leaves behind
         self.git("checkout", "-q", "-b", "feature")
         self.write("app/new.py", "x = 1\n" + SRC)
         self.git("add", ".")
@@ -275,14 +295,24 @@ class TestAction(Base):
     def run_action(self, **env):
         gh = self.td / ".gh"
         gh.mkdir(exist_ok=True)
-        base = dict(GITHUB_ACTIONS="true", GITHUB_WORKSPACE=str(self.td), GITHUB_EVENT_NAME="pull_request",
-                    GITHUB_BASE_REF="main", GITHUB_STEP_SUMMARY=str(gh / "summary.md"), GITHUB_OUTPUT=str(gh / "out"),
-                    RUNNER_TEMP=str(gh))
+        base = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_WORKSPACE": str(self.td),
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_BASE_REF": "main",
+            "GITHUB_STEP_SUMMARY": str(gh / "summary.md"),
+            "GITHUB_OUTPUT": str(gh / "out"),
+            "RUNNER_TEMP": str(gh),
+        }
         base.update(env)
         out = io.StringIO()
         with mock.patch.dict(os.environ, base), redirect_stdout(out), redirect_stderr(io.StringIO()):
             code = action_main([])
-        outputs = dict(l.split("=", 1) for l in (gh / "out").read_text(encoding="utf-8").splitlines()) if (gh / "out").exists() else {}
+        outputs = (
+            dict(ln.split("=", 1) for ln in (gh / "out").read_text(encoding="utf-8").splitlines())
+            if (gh / "out").exists()
+            else {}
+        )
         summary = (gh / "summary.md").read_text(encoding="utf-8") if (gh / "summary.md").exists() else ""
         return code, out.getvalue(), outputs, summary
 
@@ -290,7 +320,7 @@ class TestAction(Base):
         self.make_pr()
         code, out, outputs, summary = self.run_action()
         self.assertEqual(code, 0)
-        annotations = [l for l in out.splitlines() if l.startswith("::")]
+        annotations = [ln for ln in out.splitlines() if ln.startswith("::")]
         self.assertEqual(len(annotations), 2)
         self.assertTrue(all("file=app/new.py" in a for a in annotations))
         self.assertEqual(outputs["findings-count"], "2")
@@ -302,8 +332,10 @@ class TestAction(Base):
         _, out, _, _ = self.run_action(INPUT_PATH="app")
         self.assertIn("file=app/new.py,line=3", out)
         doc = json.loads(Path(self.td / ".gh" / "spendlint.sarif").read_text(encoding="utf-8"))
-        self.assertEqual({r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in doc["runs"][0]["results"]},
-                         {"app/new.py"})
+        self.assertEqual(
+            {r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in doc["runs"][0]["results"]},
+            {"app/new.py"},
+        )
 
     def test_push_event_scans_everything_and_fail_on(self):
         self.make_pr()

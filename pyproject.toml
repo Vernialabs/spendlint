@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,30 +10,30 @@ readme = "README.md"
 license = "PolyForm-Small-Business-1.0.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Ishan Upadhyay" }]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = []
 keywords = ["llm", "ai-agents", "llm-cost", "token-usage", "prompt-caching", "finops", "linter", "static-analysis", "github-action"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Environment :: Console",
     "Topic :: Software Development :: Quality Assurance",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
+    "Typing :: Typed",
 ]
 
 [project.optional-dependencies]
 # Full YAML for .spendlint.yml. Without it a built-in reader handles the flat subset the config uses.
-yaml = ["PyYAML>=5.1"]
+yaml = ["PyYAML>=6.0.3"]
 
 [project.scripts]
 spendlint = "spendlint.__main__:main"
-
-[tool.setuptools]
-packages = ["spendlint"]
-
-[tool.setuptools.dynamic]
-version = { attr = "spendlint.__version__" }
 
 [project.urls]
 Homepage = "https://vernia.in"
@@ -41,3 +41,71 @@ Source = "https://github.com/vernialabs/spendlint"
 Documentation = "https://github.com/vernialabs/spendlint/blob/main/docs/USAGE.md"
 Changelog = "https://github.com/vernialabs/spendlint/blob/main/CHANGELOG.md"
 Issues = "https://github.com/vernialabs/spendlint/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "coverage[toml]>=7.17.0",
+    "ruff>=0.17.2",
+    "pyright>=1.1.414",
+    "pre-commit>=4.7.0",
+    "build>=1.6.1",
+    "twine>=7.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["spendlint*"]
+
+[tool.setuptools.package-data]
+# Tree-sitter queries, SDK/model data and the typing marker ship inside the wheel.
+spendlint = ["py.typed", "**/*.scm", "**/*.toml"]
+
+[tool.setuptools.dynamic]
+version = { attr = "spendlint.__version__" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["collector", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PERF", "C4", "PIE", "RET"]
+ignore = [
+    "E501",    # long regexes and messages read better on one line; the formatter handles code
+    "SIM102",  # nested ifs mirror the rule logic
+    "RET505",  # early return followed by else reads fine in rule code
+    "RUF001",  # en dashes in user-facing strings are intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PERF"]
+# Legacy engine, replaced by spendlint/engine in 0.2.0; only formatting and safe fixes are applied until then.
+"spendlint/{rules_py,rules_ts,scan,meta}.py" = ["C408", "E741", "SIM105", "RUF015", "B905", "RUF005", "B023", "E731", "PIE810", "RUF059"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pyright]
+include = ["spendlint", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+# New engine packages are checked strictly from the start.
+strict = ["spendlint/engine", "spendlint/lang", "spendlint/sdk"]
+# Legacy rule module, replaced by spendlint/rules in 0.2.0.
+ignore = ["spendlint/rules_py.py"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["spendlint"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80
