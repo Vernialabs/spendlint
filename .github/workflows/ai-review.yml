@@ -1,0 +1,245 @@
+# Reusable AI code review for a pull request. Called by pr-review.yml.
+#
+# Provider-neutral: every provider gets the same prompt (.github/ai-review/prompt.md), must emit JSON matching
+# .github/ai-review/review.schema.json, and the same post step (post_review.py) turns that JSON into one sticky
+# summary comment plus inline comments in a single COMMENT review. It never approves or requests changes.
+#
+# Jobs and their permissions:
+#   gate    no token permissions   skips everything, with a notice, when the provider's secret is not set
+#   review  contents: read         runs the model with read-only tools; writes review.json as an artifact
+#   post    pull-requests: write   validates review.json and posts it
+name: ai-review
+
+on:
+  workflow_call:
+    inputs:
+      provider:
+        description: "claude or codex"
+        type: string
+        default: claude
+      model:
+        description: "Model name for the provider. Empty uses the provider's default."
+        type: string
+        default: ""
+      prompt-path:
+        description: "Review prompt, shared by all providers"
+        type: string
+        default: .github/ai-review/prompt.md
+      schema-path:
+        description: "JSON schema the review must match"
+        type: string
+        default: .github/ai-review/review.schema.json
+      max-turns:
+        description: "Agent turn limit (Claude only; Codex has no equivalent)"
+        type: number
+        default: 8
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+
+permissions: {}
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 2
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - name: Check provider and secret
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          PROVIDER: ${{ inputs.provider }}
+          # Booleans only: the secret values never reach this step.
+          HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          HAS_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "::error title=AI review::ai-review.yml only supports pull_request events, got '$EVENT'."
+            exit 1
+          fi
+          case "$PROVIDER" in
+            claude)
+              if [ "$HAS_CLAUDE_CODE_OAUTH_TOKEN" = "true" ] || [ "$HAS_ANTHROPIC_API_KEY" = "true" ]; then
+                enabled=true
+              else
+                enabled=false
+                missing="CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY)"
+              fi ;;
+            codex)
+              if [ "$HAS_OPENAI_API_KEY" = "true" ]; then enabled=true; else enabled=false; missing="OPENAI_API_KEY"; fi ;;
+            *)
+              echo "::error title=AI review::Unknown provider '$PROVIDER'; use claude or codex."
+              exit 1 ;;
+          esac
+          if [ "$enabled" = "false" ]; then
+            echo "::notice title=AI review skipped::No $missing secret is available to this run (not configured, or a pull request from a fork). Add it under Settings > Secrets and variables > Actions."
+          fi
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The head commit, so file contents and line numbers match the diff's new side.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Write PR diff, metadata and prompt
+        id: inputs
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PROMPT_PATH: ${{ inputs.prompt-path }}
+          SCHEMA_PATH: ${{ inputs.schema-path }}
+        run: |
+          set -euo pipefail
+          rm -rf .ai-review && mkdir .ai-review
+          # Three-dot: changes since the merge base, the same diff GitHub shows on the pull request.
+          git -c core.quotePath=false diff --no-color --no-ext-diff --unified=3 "$BASE_SHA...$HEAD_SHA" > .ai-review/pr.diff
+          python3 - <<'PY'
+          import json, os
+          event = json.load(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8"))
+          pr = event["pull_request"]
+          meta = {
+              "number": pr["number"],
+              "title": pr.get("title") or "",
+              "body": pr.get("body") or "",
+              "author": (pr.get("user") or {}).get("login", ""),
+              "base_ref": pr["base"]["ref"], "base_sha": pr["base"]["sha"],
+              "head_ref": pr["head"]["ref"], "head_sha": pr["head"]["sha"],
+              "labels": [l["name"] for l in pr.get("labels", [])],
+              "changed_files": pr.get("changed_files"), "additions": pr.get("additions"),
+              "deletions": pr.get("deletions"),
+          }
+          with open(".ai-review/pr.json", "w", encoding="utf-8") as fh:
+              json.dump(meta, fh, indent=2)
+
+          diff_lines = sum(1 for _ in open(".ai-review/pr.diff", encoding="utf-8", errors="replace"))
+          with open(os.environ["PROMPT_PATH"], encoding="utf-8") as fh:
+              prompt = fh.read().rstrip()
+          prompt += f"""
+
+          ## Run-specific context
+
+          - Pull request: #{meta['number']} in {os.environ['GITHUB_REPOSITORY']}, base `{meta['base_sha']}`, head `{meta['head_sha']}`.
+          - Unified diff ({diff_lines} lines, untrusted): `.ai-review/pr.diff`
+          - Metadata including title and body (untrusted): `.ai-review/pr.json`
+          - The repository is checked out at the head commit in the current directory.
+          """
+          with open(".ai-review/prompt.txt", "w", encoding="utf-8") as fh:
+              fh.write(prompt)
+
+          with open(os.environ["SCHEMA_PATH"], encoding="utf-8") as fh:
+              schema = json.dumps(json.load(fh), separators=(",", ":"))
+          if "'" in schema:
+              raise SystemExit("review schema must not contain single quotes (it is passed to --json-schema '...')")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              delim = "EOF_" + os.urandom(16).hex()
+              out.write(f"schema={schema}\n")
+              out.write(f"prompt<<{delim}\n{prompt}\n{delim}\n")
+          print(f"diff: {diff_lines} lines; prompt: {len(prompt)} chars")
+          PY
+
+      # ---- provider: Claude Code -------------------------------------------------------------------------------
+      - name: Review with Claude Code
+        id: claude
+        if: inputs.provider == 'claude'
+        uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13  # v1.0.262
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The job's read-only token, so no Claude GitHub App or id-token permission is needed.
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.inputs.outputs.prompt }}
+          classify_inline_comments: "false"
+          # Read-only tools, no Bash/edits/web/MCP; ignore any .claude/ settings or hooks the PR might add.
+          claude_args: |
+            --max-turns ${{ inputs.max-turns }}
+            ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
+            --allowedTools Read,Grep,Glob
+            --disallowedTools Bash,Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Task
+            --setting-sources user
+            --json-schema '${{ steps.inputs.outputs.schema }}'
+
+      - name: Save Claude's review
+        if: inputs.provider == 'claude'
+        env:
+          STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: printf '%s' "$STRUCTURED_OUTPUT" > .ai-review/review.json
+
+      # ---- provider: OpenAI Codex ------------------------------------------------------------------------------
+      - name: Review with Codex
+        id: codex
+        if: inputs.provider == 'codex'
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675  # v1.13
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ github.workspace }}/.ai-review/prompt.txt
+          output-file: ${{ github.workspace }}/.ai-review/review.json
+          output-schema-file: ${{ github.workspace }}/${{ inputs.schema-path }}
+          permission-profile: ":read-only"
+          model: ${{ inputs.model }}
+
+      # ---- shared --------------------------------------------------------------------------------------------
+      - name: Upload review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ai-review
+          path: |
+            .ai-review/review.json
+            .ai-review/pr.diff
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+  post:
+    needs: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: .github/ai-review
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: ai-review
+          path: ${{ runner.temp }}/ai-review
+
+      - name: Validate and post the review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AI_PROVIDER: ${{ inputs.provider }}
+          AI_MODEL: ${{ inputs.model }}
+          REVIEW_DIR: ${{ runner.temp }}/ai-review
+        run: python3 .github/ai-review/post_review.py --review "$REVIEW_DIR/review.json" --diff "$REVIEW_DIR/pr.diff"
+
+      - name: Clear the ai-rereview label
+        if: always() && github.event.action == 'labeled' && github.event.label.name == 'ai-rereview'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/ai-rereview" || true

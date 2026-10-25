@@ -1,0 +1,53 @@
+{
+  "description": "Output of the AI pull-request review. Shared by every provider; post_review.py validates it before posting.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["looks_good", "needs_changes"],
+      "description": "needs_changes if any blocker or major finding exists, otherwise looks_good."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Two to six sentences: what the change does and the most important risks. Markdown allowed."
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 10,
+      "description": "At most 10 findings, most severe first. Empty when there is nothing to report.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "severity", "title", "body", "suggestion"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Repository-relative path of the file, exactly as in the diff header (b/ side, without the b/ prefix)."
+          },
+          "line": {
+            "type": "integer",
+            "description": "Line number in the NEW version of the file. Must be an added or context line of a diff hunk to be posted inline; use 0 for file-level findings."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocker", "major", "minor", "nit"]
+          },
+          "title": {
+            "type": "string",
+            "description": "One line, under 80 characters."
+          },
+          "body": {
+            "type": "string",
+            "description": "What is wrong and why it matters, with a concrete input that triggers it when possible. Markdown allowed."
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "A concrete fix (prose or a short code snippet). Empty string if none."
+          }
+        }
+      }
+    }
+  }
+}

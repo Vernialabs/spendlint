@@ -1,0 +1,33 @@
+# AI code review on every pull request, posted as comments (never an approval or a block).
+#
+# Switch provider by editing the one `provider:` line below (claude | codex), or without a commit by setting the
+# repository variable AI_REVIEW_PROVIDER. AI_REVIEW_MODEL optionally picks the model.
+# Skip a pull request with the `ai-review-skip` label; add `ai-rereview` to run the review again.
+# Without the provider's secret the review job is skipped with a notice, so CI stays green.
+name: pr-review
+
+on:
+  pull_request:  # never pull_request_target: fork PRs get no secrets and a read-only token
+    types: [opened, synchronize, ready_for_review, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai-review:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.actor != 'dependabot[bot]' &&
+      !contains(github.event.pull_request.labels.*.name, 'ai-review-skip') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'ai-rereview')
+    concurrency:
+      group: pr-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/ai-review.yml
+    with:
+      provider: ${{ vars.AI_REVIEW_PROVIDER || 'claude' }}  # the one-line switch: claude | codex
+      model: ${{ vars.AI_REVIEW_MODEL || '' }}
+      max-turns: 8
+    secrets: inherit
