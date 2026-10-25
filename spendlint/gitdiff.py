@@ -6,6 +6,7 @@ Two checkout shapes matter on GitHub:
 - A checkout of the PR head (or a local branch) is compared with the base using the merge base (`base...HEAD`),
   falling back to a direct two-point diff when the history is too shallow to find a merge base.
 """
+
 import subprocess
 
 from .scan import parse_diff
@@ -19,8 +20,14 @@ class GitError(RuntimeError):
 
 def git(root, *args, check=True):
     try:
-        p = subprocess.run(["git", "-C", str(root), "-c", "core.quotePath=false", *args],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=GIT_TIMEOUT)
+        p = subprocess.run(
+            ["git", "-C", str(root), "-c", "core.quotePath=false", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=GIT_TIMEOUT,
+        )
     except FileNotFoundError:
         raise GitError("git is not installed or not on PATH") from None
     except subprocess.TimeoutExpired:
@@ -62,9 +69,17 @@ def added_lines(root, base, merge_commit=False, fetch=False):
             if _has_commit(root, first):
                 return parse_diff(_diff(root, first, "HEAD")), "lines added by the pull request merge commit"
     if not _has_commit(root, base) and fetch and base.startswith("origin/"):
-        branch = base[len("origin/"):]
-        git(root, "fetch", "--no-tags", "--quiet", "--depth=100", "origin",
-            f"+refs/heads/{branch}:refs/remotes/origin/{branch}", check=False)
+        branch = base[len("origin/") :]
+        git(
+            root,
+            "fetch",
+            "--no-tags",
+            "--quiet",
+            "--depth=100",
+            "origin",
+            f"+refs/heads/{branch}:refs/remotes/origin/{branch}",
+            check=False,
+        )
     if not _has_commit(root, base):
         raise GitError(f"base revision {base!r} not found (fetch it, or check out with fetch-depth: 0)")
     if git(root, "merge-base", base, "HEAD", check=False).returncode == 0:

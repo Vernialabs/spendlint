@@ -1,0 +1,43 @@
+# Weekly, grouped updates. Actions stay pinned to full SHAs; Dependabot rewrites the SHA and the version comment.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/workflows"]
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      python-dev:
+        dependency-type: development
+      python-runtime:
+        dependency-type: production
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: npm
+    directory: "/collector"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      collector:
+        patterns: ["*"]
+    commit-message:
+      prefix: "collector"

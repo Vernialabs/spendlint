@@ -17,14 +17,15 @@ Events are appended to a local JSONL log (`spendlint telemetry show`) and sent t
 collector. SPENDLINT_TELEMETRY_URL points them elsewhere; SPENDLINT_TELEMETRY_URL=none keeps them local only.
 Sending uses a short timeout and swallows every error: telemetry can never change a scan's result or exit code.
 """
+
+import contextlib
 import hashlib
 import json
 import os
-import platform
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import __version__
@@ -41,8 +42,21 @@ COMMANDS = ("scan", "action")
 CI_PROVIDERS = ("github-actions", "gitlab", "circle", "other-ci", "none")
 OS_FAMILIES = ("windows", "linux", "macos", "other")
 LANG_BUCKETS = ("python", "typescript_javascript")
-EVENT_KEYS = {"schema_version", "event", "timestamp", "install_id", "tool_version", "python_version", "os_family",
-              "ci_provider", "command", "runtime_seconds", "files_scanned", "findings_by_rule", "exit_code"}
+EVENT_KEYS = {
+    "schema_version",
+    "event",
+    "timestamp",
+    "install_id",
+    "tool_version",
+    "python_version",
+    "os_family",
+    "ci_provider",
+    "command",
+    "runtime_seconds",
+    "files_scanned",
+    "findings_by_rule",
+    "exit_code",
+}
 OPTIONAL_KEYS = {"license_key_sha256"}
 
 NOTICE = """\
@@ -101,13 +115,15 @@ def ci_provider(env=None):
         return "gitlab"
     if env.get("CIRCLECI"):
         return "circle"
-    if env.get("CI", "").lower() in TRUE or env.get("BUILD_ID") and env.get("JENKINS_URL") or env.get("TF_BUILD"):
+    if env.get("CI", "").lower() in TRUE or (env.get("BUILD_ID") and env.get("JENKINS_URL")) or env.get("TF_BUILD"):
         return "other-ci"
     return "none"
 
 
 def os_family():
-    return {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux" if sys.platform.startswith("linux") else "other")
+    return {"win32": "windows", "darwin": "macos"}.get(
+        sys.platform, "linux" if sys.platform.startswith("linux") else "other"
+    )
 
 
 def decision(env=None, state=None):
@@ -152,7 +168,7 @@ def build_event(command, runtime_seconds, stats, findings, exit_code, install_id
     event = {
         "schema_version": SCHEMA_VERSION,
         "event": "run",
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00:00Z"),  # hour resolution
+        "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:00:00Z"),  # hour resolution
         "install_id": install_id,
         "tool_version": __version__,
         "python_version": f"{sys.version_info[0]}.{sys.version_info[1]}",
@@ -174,14 +190,18 @@ def build_event(command, runtime_seconds, stats, findings, exit_code, install_id
 def validate_event(event):
     """Raise ValueError unless the event matches docs/telemetry.md exactly."""
     keys = set(event)
-    if not EVENT_KEYS <= keys or keys - EVENT_KEYS - OPTIONAL_KEYS:
+    if not keys >= EVENT_KEYS or keys - EVENT_KEYS - OPTIONAL_KEYS:
         raise ValueError(f"event keys {sorted(keys)} do not match the schema")
     uuid.UUID(event["install_id"])
     checks = [
-        event["schema_version"] == SCHEMA_VERSION, event["event"] == "run",
-        event["tool_version"] == __version__, event["os_family"] in OS_FAMILIES,
-        event["ci_provider"] in CI_PROVIDERS, event["command"] in COMMANDS,
-        isinstance(event["runtime_seconds"], float), isinstance(event["exit_code"], int),
+        event["schema_version"] == SCHEMA_VERSION,
+        event["event"] == "run",
+        event["tool_version"] == __version__,
+        event["os_family"] in OS_FAMILIES,
+        event["ci_provider"] in CI_PROVIDERS,
+        event["command"] in COMMANDS,
+        isinstance(event["runtime_seconds"], float),
+        isinstance(event["exit_code"], int),
         set(event["files_scanned"]) == set(LANG_BUCKETS),
         all(isinstance(v, int) for v in event["files_scanned"].values()),
         all(k in RULES and isinstance(v, int) for k, v in event["findings_by_rule"].items()),
@@ -204,11 +224,16 @@ def endpoint(env=None):
 
 def _send(event, url):
     import urllib.request
+
     if not url.lower().startswith(("https://", "http://")):
         return False
-    req = urllib.request.Request(url, data=json.dumps(event).encode("utf-8"), method="POST",
-                                 headers={"Content-Type": "application/json", "User-Agent": f"spendlint/{__version__}"})
-    with urllib.request.urlopen(req, timeout=SEND_TIMEOUT) as r:  # noqa: S310 - URL is set by the user
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(event).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": f"spendlint/{__version__}"},
+    )
+    with urllib.request.urlopen(req, timeout=SEND_TIMEOUT) as r:
         return 200 <= r.status < 300
 
 
@@ -235,10 +260,8 @@ def record(command, runtime_seconds, stats, findings, exit_code, stderr=None):
             fh.write(json.dumps(event, sort_keys=True) + "\n")
         url = endpoint()
         if url:
-            try:
+            with contextlib.suppress(Exception):
                 _send(event, url)
-            except Exception:
-                pass
         return event
     except Exception:
         return None
@@ -267,7 +290,9 @@ def command(argv, out=None):
         out.write(f"install id: {state.get('install_id', '(not created yet)')}\n")
         out.write(f"local log: {log_path()}\n")
         out.write(f"endpoint: {url if url else '(none: SPENDLINT_TELEMETRY_URL=none, nothing is sent)'}\n")
-        out.write(f"license key: {'set (sent as a sha256 prefix)' if os.environ.get('SPENDLINT_LICENSE_KEY') else 'not set'}\n")
+        out.write(
+            f"license key: {'set (sent as a sha256 prefix)' if os.environ.get('SPENDLINT_LICENSE_KEY') else 'not set'}\n"
+        )
         out.write(f"CI provider detected: {ci_provider()}\n")
         return 0
     if sub == "show":

@@ -12,15 +12,16 @@ in place, please open an issue first rather than a pull request.
 
 ## Development
 
-Pure Python, standard library only, Python 3.9 or newer.
+Python 3.11 or newer. Development tools are pinned in `uv.lock`; install [uv](https://docs.astral.sh/uv/) and run:
 
 ```bash
-python -m spendlint.test_rules     # rule cases
-python -m spendlint.test_cli       # CLI, config, suppression, output formats
-python -m spendlint.test_telemetry # telemetry never records code, paths or repo names
+uv sync --group dev          # pytest, ruff, pyright, pre-commit, build, twine
+uv run pre-commit install    # ruff, pyright, actionlint and zizmor on every commit
+uv run pytest                # rule cases, CLI, config, suppression, formats, telemetry
+uv run ruff check . && uv run ruff format --check . && uv run pyright
 ```
 
-Each rule needs positive and negative cases in `spendlint/test_rules.py`. A rule should keep false positives rare
+Each rule needs positive and negative cases in `tests/test_rules.py`. A rule should keep false positives rare
 on pull-request diffs: a noisy rule is worse than a missing one.
 
 `scripts/action_local/replay_action.sh` replays the GitHub Action's steps locally against a clone with a pull

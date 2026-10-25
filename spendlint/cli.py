@@ -10,7 +10,10 @@
 
 Exit codes: 0 no findings at or above --fail-on, 1 findings at or above it, 2 usage or internal error.
 """
+
 import argparse
+import contextlib
+import io
 import sys
 from pathlib import Path
 
@@ -18,7 +21,16 @@ from . import __version__, telemetry
 from .config import ConfigError, find_config, load_config
 from .gitdiff import GitError, added_lines
 from .meta import RULES
-from .report import EXIT_ERROR, FAIL_ON, exit_code, format_github, format_jsonl, format_sarif, format_text, summary_markdown
+from .report import (
+    EXIT_ERROR,
+    FAIL_ON,
+    exit_code,
+    format_github,
+    format_jsonl,
+    format_sarif,
+    format_text,
+    summary_markdown,
+)
 from .scan import parse_diff, scan_repo
 
 
@@ -57,8 +69,11 @@ def run_scan(root, rules=None, min_confidence=None, config_path=None, use_config
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="spendlint", description="Static cost-defect checks for LLM agent code.",
-                                 epilog="Other commands: `spendlint action`, `spendlint telemetry status|show|on|off`.")
+    ap = argparse.ArgumentParser(
+        prog="spendlint",
+        description="Static cost-defect checks for LLM agent code.",
+        epilog="Other commands: `spendlint action`, `spendlint telemetry status|show|on|off`.",
+    )
     ap.add_argument("--version", action="version", version=f"spendlint {__version__}")
     ap.add_argument("path", help="directory (or file) to scan")
     ap.add_argument("--rules", help="comma-separated rule ids to run (default: all)")
@@ -67,13 +82,21 @@ def build_parser():
     ap.add_argument("--no-config", action="store_true", help="ignore any config file in PATH")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--diff", help="unified diff file; only report findings on added lines")
-    g.add_argument("--diff-base", metavar="REV", help="git revision (e.g. origin/main); only report lines added since it")
+    g.add_argument(
+        "--diff-base", metavar="REV", help="git revision (e.g. origin/main); only report lines added since it"
+    )
     ap.add_argument("--format", default="text", choices=["text", "jsonl", "sarif", "github"])
     ap.add_argument("--out", help="write the main output here instead of stdout")
     ap.add_argument("--sarif", metavar="FILE", help="also write SARIF to FILE")
-    ap.add_argument("--summary-md", metavar="FILE", help="append a Markdown summary to FILE (e.g. $GITHUB_STEP_SUMMARY)")
-    ap.add_argument("--fail-on", default="none", choices=FAIL_ON,
-                    help="exit 1 when a finding of this severity or higher remains (default: none)")
+    ap.add_argument(
+        "--summary-md", metavar="FILE", help="append a Markdown summary to FILE (e.g. $GITHUB_STEP_SUMMARY)"
+    )
+    ap.add_argument(
+        "--fail-on",
+        default="none",
+        choices=FAIL_ON,
+        help="exit 1 when a finding of this severity or higher remains (default: none)",
+    )
     return ap
 
 
@@ -126,15 +149,15 @@ def scan_command(argv):
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(errors="replace")
-        except (AttributeError, ValueError):
-            pass
+        if isinstance(stream, io.TextIOWrapper):
+            with contextlib.suppress(ValueError):
+                stream.reconfigure(errors="replace")
     try:
         if argv and argv[0] == "telemetry":
             return telemetry.command(argv[1:])
         if argv and argv[0] == "action":
             from .action import main as action_main
+
             return action_main(argv[1:])
         if argv and argv[0] == "scan":
             argv = argv[1:]

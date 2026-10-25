@@ -16,7 +16,7 @@ pip install "spendlint[yaml]"    # optional: full YAML support for .spendlint.ym
 spendlint --version
 ```
 
-Python 3.9 or newer. `python -m spendlint ...` works the same as `spendlint ...`.
+Python 3.11 or newer. `python -m spendlint ...` works the same as `spendlint ...`.
 
 ## Scan
 
@@ -104,6 +104,7 @@ paths or names are ever recorded.
 ## Tests
 
 ```bash
-python -m spendlint.test_rules                                   # 63 rule cases
-python -m unittest spendlint.test_cli spendlint.test_telemetry    # CLI, config, action, telemetry
+uv sync --group dev        # dev tools from uv.lock
+uv run pytest              # rule cases, CLI, config, action, telemetry
+uv run ruff check . && uv run pyright
 ```

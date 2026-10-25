@@ -1,17 +1,20 @@
 """spendlint engine: walk a checkout, run rules, optionally keep only findings on lines added by a diff."""
+
 import ast
 import fnmatch
-import json
 import os
 import re
 from pathlib import Path
 
 from . import __version__
 from .meta import RULES
-from .rules_py import PY_RULES, is_llm_call, dotted, docstring_lines
+from .rules_py import PY_RULES, docstring_lines, dotted
 from .rules_ts import TS_RULES, t_media_001
 
-SKIP_DIR = re.compile(r"(^|/)(\.git|node_modules|venv|\.venv|dist|build|__pycache__|tests?|__tests__|docs?|examples?|cookbooks?|notebooks?|benchmarks?|e2e|fixtures?|migrations|site-packages|vendor|third_party)(/|$)", re.I)
+SKIP_DIR = re.compile(
+    r"(^|/)(\.git|node_modules|venv|\.venv|dist|build|__pycache__|tests?|__tests__|docs?|examples?|cookbooks?|notebooks?|benchmarks?|e2e|fixtures?|migrations|site-packages|vendor|third_party)(/|$)",
+    re.I,
+)
 SKIP_FILE = re.compile(r"(^test_.*\.py$|.*_test\.py$|.*\.(test|spec)\.[jt]sx?$|.*\.d\.ts$|.*\.min\.js$|conftest\.py$)")
 PY_EXT = (".py",)
 TS_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs")
@@ -130,7 +133,14 @@ def scan_repo(root, rules=None, diff=None, ignore_paths=None, suppress=True):
                             anthropic_sites.append((rel, n.lineno, has_sys, text))
                             break
                         # LangChain / Bedrock call surfaces that also take cache markers
-                        if last in ("ChatAnthropic", "ChatBedrock", "ChatBedrockConverse", "ChatAnthropicVertex", "AnthropicBedrock", "AnthropicVertex") or (last in ("converse", "converse_stream") and re.search(r"claude|anthropic", text, re.I)):
+                        if last in (
+                            "ChatAnthropic",
+                            "ChatBedrock",
+                            "ChatBedrockConverse",
+                            "ChatAnthropicVertex",
+                            "AnthropicBedrock",
+                            "AnthropicVertex",
+                        ) or (last in ("converse", "converse_stream") and re.search(r"claude|anthropic", text, re.I)):
                             anthropic_sites.append((rel, n.lineno, False, text))
                             break
         else:
@@ -141,26 +151,51 @@ def scan_repo(root, rules=None, diff=None, ignore_paths=None, suppress=True):
                     pass
             m = re.search(r"messages\.(create|stream)\s*\(", text)
             if m and re.search(r"@anthropic-ai/sdk|anthropic", text, re.I):
-                anthropic_sites.append((rel, text.count("\n", 0, m.start()) + 1, "system" in text[m.start(): m.start() + 600], text))
+                anthropic_sites.append(
+                    (rel, text.count("\n", 0, m.start()) + 1, "system" in text[m.start() : m.start() + 600], text)
+                )
             else:
-                m = re.search(r"new (ConverseCommand|ConverseStreamCommand)\s*\(|createAnthropic\s*\(|\bbedrock\s*\(\s*[\"'][^\"']*(claude|anthropic)", text)
+                m = re.search(
+                    r"new (ConverseCommand|ConverseStreamCommand)\s*\(|createAnthropic\s*\(|\bbedrock\s*\(\s*[\"'][^\"']*(claude|anthropic)",
+                    text,
+                )
                 if m and re.search(r"claude|anthropic", text, re.I):
                     anthropic_sites.append((rel, text.count("\n", 0, m.start()) + 1, False, text))
         for rid, line, end, detail, conf in raw:
             if rules is not None and rid not in rules:
                 continue
-            findings.append(dict(rule_id=rid, path=rel, line=line, end_line=end, detail=detail, confidence=conf, snippet=snippet(text, line, end)))
+            findings.append(
+                dict(
+                    rule_id=rid,
+                    path=rel,
+                    line=line,
+                    end_line=end,
+                    detail=detail,
+                    confidence=conf,
+                    snippet=snippet(text, line, end),
+                )
+            )
             texts[rel] = text  # kept only for files with findings, for the suppression check
     # repo-level: anthropic without any cache_control
     if (rules is None or "R-CACHE-001" in rules) and anthropic_sites and not cache_control_seen:
         sites = sorted(anthropic_sites, key=lambda s: (not s[2], s[0]))
         rel, line, has_sys, text = sites[0]
         texts[rel] = text
-        findings.append(dict(rule_id="R-CACHE-001", path=rel, line=line, end_line=line,
-                             detail=f"{len(anthropic_sites)} file(s) call Anthropic messages API; `cache_control` appears nowhere in the repo",
-                             confidence=0.6 if has_sys else 0.45, snippet=snippet(text, line, line)))
+        findings.append(
+            dict(
+                rule_id="R-CACHE-001",
+                path=rel,
+                line=line,
+                end_line=line,
+                detail=f"{len(anthropic_sites)} file(s) call Anthropic messages API; `cache_control` appears nowhere in the repo",
+                confidence=0.6 if has_sys else 0.45,
+                snippet=snippet(text, line, line),
+            )
+        )
     if diff is not None:
-        findings = [f for f in findings if any(l in diff.get(f["path"], ()) for l in range(f["line"], f["end_line"] + 1))]
+        findings = [
+            f for f in findings if any(l in diff.get(f["path"], ()) for l in range(f["line"], f["end_line"] + 1))
+        ]
     if suppress:
         kept = []
         for f in findings:
@@ -171,8 +206,14 @@ def scan_repo(root, rules=None, diff=None, ignore_paths=None, suppress=True):
         findings = kept
     for f in findings:
         meta = RULES[f["rule_id"]]
-        f.update(rule_name=meta["name"], severity=meta["severity"], category=meta["category"], fp_risk=meta["fp_risk"],
-                 dataset_evidence=meta["evidence"], recommended_action=meta["action"])
+        f.update(
+            rule_name=meta["name"],
+            severity=meta["severity"],
+            category=meta["category"],
+            fp_risk=meta["fp_risk"],
+            dataset_evidence=meta["evidence"],
+            recommended_action=meta["action"],
+        )
     findings.sort(key=lambda f: (-f["confidence"], f["rule_id"], f["path"], f["line"]))
     return findings, stats
 
@@ -197,12 +238,40 @@ def parse_diff(diff_text):
 
 
 def to_sarif(findings, tool_version=__version__):
-    rules = [{"id": rid, "name": m["name"], "shortDescription": {"text": m["name"]}, "help": {"text": m["action"]},
-              "properties": {"category": m["category"], "falsePositiveRisk": m["fp_risk"], "datasetEvidence": m["evidence"]}}
-             for rid, m in RULES.items()]
-    results = [{"ruleId": f["rule_id"], "level": {"warning": "warning", "info": "note"}.get(f["severity"], "note"),
-                "message": {"text": f["detail"] + " - " + f["recommended_action"]},
-                "locations": [{"physicalLocation": {"artifactLocation": {"uri": f["path"]},
-                                                    "region": {"startLine": f["line"], "endLine": f["end_line"]}}}]} for f in findings]
-    return {"version": "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-            "runs": [{"tool": {"driver": {"name": "spendlint", "version": tool_version, "rules": rules}}, "results": results}]}
+    rules = [
+        {
+            "id": rid,
+            "name": m["name"],
+            "shortDescription": {"text": m["name"]},
+            "help": {"text": m["action"]},
+            "properties": {
+                "category": m["category"],
+                "falsePositiveRisk": m["fp_risk"],
+                "datasetEvidence": m["evidence"],
+            },
+        }
+        for rid, m in RULES.items()
+    ]
+    results = [
+        {
+            "ruleId": f["rule_id"],
+            "level": {"warning": "warning", "info": "note"}.get(f["severity"], "note"),
+            "message": {"text": f["detail"] + " - " + f["recommended_action"]},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f["path"]},
+                        "region": {"startLine": f["line"], "endLine": f["end_line"]},
+                    }
+                }
+            ],
+        }
+        for f in findings
+    ]
+    return {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [
+            {"tool": {"driver": {"name": "spendlint", "version": tool_version, "rules": rules}}, "results": results}
+        ],
+    }

@@ -1,35 +1,105 @@
 """Python rules (AST based). Each rule yields (rule_id, line, end_line, detail, confidence)."""
+
 import ast
 import re
 
 LLM_SUFFIXES = (
-    "chat.completions.create", "chat.completions.parse", "responses.create", "messages.create", "messages.stream",
-    "generate_content", "generate_content_async", "litellm.completion", "litellm.acompletion",
-    "llm.ask", "llm.chat", "llm.invoke", "llm.ainvoke", "llm.complete", "llm.acomplete", "llm.generate",
-    "model.invoke", "model.ainvoke", "model.generate_content", "client.chat", "client.generate",
+    "chat.completions.create",
+    "chat.completions.parse",
+    "responses.create",
+    "messages.create",
+    "messages.stream",
+    "generate_content",
+    "generate_content_async",
+    "litellm.completion",
+    "litellm.acompletion",
+    "llm.ask",
+    "llm.chat",
+    "llm.invoke",
+    "llm.ainvoke",
+    "llm.complete",
+    "llm.acomplete",
+    "llm.generate",
+    "model.invoke",
+    "model.ainvoke",
+    "model.generate_content",
+    "client.chat",
+    "client.generate",
 )
-LLM_LAST = {"acompletion", "call_llm", "ask_llm", "chat_completion", "create_chat_completion", "ask_tool",
-            "run_llm", "llm_call", "get_completion", "chat_with_llm"}
+LLM_LAST = {
+    "acompletion",
+    "call_llm",
+    "ask_llm",
+    "chat_completion",
+    "create_chat_completion",
+    "ask_tool",
+    "run_llm",
+    "llm_call",
+    "get_completion",
+    "chat_with_llm",
+}
 DYNAMIC = (
-    "datetime.now", "datetime.utcnow", "datetime.today", "date.today", "time.time", "time.ctime", "time.strftime",
-    "uuid.uuid4", "uuid4", "os.getcwd", "getcwd", "Path.cwd", "random.random", "random.randint", "arrow.utcnow",
-    "pendulum.now", "datetime.datetime.now", "datetime.datetime.utcnow", "datetime.datetime.today",
+    "datetime.now",
+    "datetime.utcnow",
+    "datetime.today",
+    "date.today",
+    "time.time",
+    "time.ctime",
+    "time.strftime",
+    "uuid.uuid4",
+    "uuid4",
+    "os.getcwd",
+    "getcwd",
+    "Path.cwd",
+    "random.random",
+    "random.randint",
+    "arrow.utcnow",
+    "pendulum.now",
+    "datetime.datetime.now",
+    "datetime.datetime.utcnow",
+    "datetime.datetime.today",
 )
-EMBED_SINGLE = {"embed_query", "get_embedding", "get_text_embedding", "aget_text_embedding", "get_query_embedding",
-                "embed_text", "aembed_query", "generate_embedding", "get_embedding_for_text"}
+EMBED_SINGLE = {
+    "embed_query",
+    "get_embedding",
+    "get_text_embedding",
+    "aget_text_embedding",
+    "get_query_embedding",
+    "embed_text",
+    "aembed_query",
+    "generate_embedding",
+    "get_embedding_for_text",
+}
 # single-item embed method name shapes seen in real code, with optional leading underscore / async prefix
-EMBED_SINGLE_RX = re.compile(r"^_?a?(get_|generate_|create_|compute_|make_)?(general_|single_)?(text_|query_|document_)?embed(ding)?(_text|_query|_one|_single|_string)?$", re.I)
+EMBED_SINGLE_RX = re.compile(
+    r"^_?a?(get_|generate_|create_|compute_|make_)?(general_|single_)?(text_|query_|document_)?embed(ding)?(_text|_query|_one|_single|_string)?$",
+    re.I,
+)
 EMBED_CALLABLE_NAMES = {"embedding_function", "embed_fn", "embedding_fn", "embedder", "embed_func"}
-BATCH_FN_RX = re.compile(r"(embed_documents|_get_text_embeddings|_aget_text_embeddings|embed_texts|aembed_documents|embed_batch|embed_many)", re.I)
+BATCH_FN_RX = re.compile(
+    r"(embed_documents|_get_text_embeddings|_aget_text_embeddings|embed_texts|aembed_documents|embed_batch|embed_many)",
+    re.I,
+)
 # per-request volatile identifiers / paths / times interpolated into prompts
-VOLATILE_ID_RX = re.compile(r"(session|request|run|trace|conversation|thread|invocation|message|turn|job|task)[_-]?(id|uuid|key)$|^(uuid|guid|nonce)$", re.I)
-VOLATILE_PATH_RX = re.compile(r"^(cwd|workdir|work_dir|working_dir(ectory)?|directory|tmp_dir|temp_dir|sdk_cwd|project_path|root_dir|sandbox_dir|workspace(_root|_dir|_path)?)$", re.I)
-VOLATILE_TIME_RX = re.compile(r"^(now|today|timestamp|current_time|time_str|date_str|current_date|datetime_str|ts)$", re.I)
+VOLATILE_ID_RX = re.compile(
+    r"(session|request|run|trace|conversation|thread|invocation|message|turn|job|task)[_-]?(id|uuid|key)$|^(uuid|guid|nonce)$",
+    re.I,
+)
+VOLATILE_PATH_RX = re.compile(
+    r"^(cwd|workdir|work_dir|working_dir(ectory)?|directory|tmp_dir|temp_dir|sdk_cwd|project_path|root_dir|sandbox_dir|workspace(_root|_dir|_path)?)$",
+    re.I,
+)
+VOLATILE_TIME_RX = re.compile(
+    r"^(now|today|timestamp|current_time|time_str|date_str|current_date|datetime_str|ts)$", re.I
+)
 HEAD_CHARS = 400  # paths/dates only matter when they sit at the head of the cached prefix
 SERIALIZER_RX = re.compile(r"(json|dump|serial|prompt|pretty|render)", re.I)
 USAGE_IN_KEY = re.compile(r"^(prompt|input)_?tokens$", re.I)
 USAGE_OUT_KEY = re.compile(r"^(completion|output)_?tokens$", re.I)
-CACHE_FIELD_RX = re.compile(r"cache_read|cache_creation|cached_tokens|cached_input|cache_write|cacheRead|cacheWrite|cachedInput|prompt_cache", re.I)
+CACHE_FIELD_RX = re.compile(
+    r"cache_read|cache_creation|cached_tokens|cached_input|cache_write|cacheRead|cacheWrite|cachedInput|prompt_cache",
+    re.I,
+)
 CACHE_WRITE_RX = re.compile(r"cache_creation|cache_write|cacheWrite|creation_input|ephemeral_1h|ephemeral_5m", re.I)
 CACHE_READ_RX = re.compile(r"cached_tokens|cache_read|cacheRead|cachedInput|cached_input", re.I)
 ANTHROPIC_LIKE_RX = re.compile(r"anthropic|claude|litellm|bedrock", re.I)
@@ -51,7 +121,12 @@ def render_template(node):
         return out
     if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
         return render_template(node.left) + render_template(node.right)
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult) and isinstance(node.right, ast.Constant) and isinstance(node.right.value, int):
+    if (
+        isinstance(node, ast.BinOp)
+        and isinstance(node.op, ast.Mult)
+        and isinstance(node.right, ast.Constant)
+        and isinstance(node.right.value, int)
+    ):
         text = "".join(t for k, t in render_template(node.left) if k == "text")
         return [("text", text * min(node.right.value, 100000 // max(1, len(text))))]
     if isinstance(node, (ast.List, ast.Tuple)):
@@ -79,10 +154,16 @@ def volatile_interpolation(node, head_only=True):
             return ("path" if VOLATILE_PATH_RX.match(last) else "time", val, off)
         off += 8
     return None
-BOUND_RX = re.compile(r"(max|limit|iter|step|turn|round|attempt|retr|budget|remaining|deadline|timeout|count|n_|num_|until|stop)", re.I)
+
+
+BOUND_RX = re.compile(
+    r"(max|limit|iter|step|turn|round|attempt|retr|budget|remaining|deadline|timeout|count|n_|num_|until|stop)", re.I
+)
 SYSTEM_NAME_RX = re.compile(r"(system[_ ]?(prompt|message|instruction)s?|^SYSTEM$|_SYSTEM$|^instructions?$)", re.I)
 CHEAP_FN_RX = re.compile(r"(title|summar|classif|intent|rout(e|er)|rename|tagging|caption|keywords?)", re.I)
-FRONTIER_RX = re.compile(r"^(gpt-4o|gpt-4\.1|gpt-4-turbo|gpt-4|gpt-5(\.\d+)?|o1|o3|claude-(3-opus|3-5-sonnet|3-7-sonnet|opus|sonnet)[\w.\-]*|claude-[a-z]+-\d[\w.\-]*(sonnet|opus)[\w.\-]*)$")
+FRONTIER_RX = re.compile(
+    r"^(gpt-4o|gpt-4\.1|gpt-4-turbo|gpt-4|gpt-5(\.\d+)?|o1|o3|claude-(3-opus|3-5-sonnet|3-7-sonnet|opus|sonnet)[\w.\-]*|claude-[a-z]+-\d[\w.\-]*(sonnet|opus)[\w.\-]*)$"
+)
 CHEAP_WORDS = ("mini", "nano", "haiku", "flash", "lite", "small")
 
 
@@ -98,9 +179,35 @@ def dotted(node):
     return ".".join(reversed(parts))
 
 
-LOG_LAST = {"debug", "info", "warning", "warn", "error", "exception", "critical", "log", "print", "write", "echo", "fatal",
-            "write_text", "write_bytes", "print_panel", "panel", "markdown", "toast", "notify", "rprint", "pprint", "secho", "fail", "abort"}
-GENERATED_PATH_RX = re.compile(r"(_generated|/generated/|/types?\.py$|/schemas?\.py$|/models?\.py$|_types\.py$|_pb2)", re.I)
+LOG_LAST = {
+    "debug",
+    "info",
+    "warning",
+    "warn",
+    "error",
+    "exception",
+    "critical",
+    "log",
+    "print",
+    "write",
+    "echo",
+    "fatal",
+    "write_text",
+    "write_bytes",
+    "print_panel",
+    "panel",
+    "markdown",
+    "toast",
+    "notify",
+    "rprint",
+    "pprint",
+    "secho",
+    "fail",
+    "abort",
+}
+GENERATED_PATH_RX = re.compile(
+    r"(_generated|/generated/|/types?\.py$|/schemas?\.py$|/models?\.py$|_types\.py$|_pb2)", re.I
+)
 
 
 def code_only(tree, text):
@@ -110,6 +217,8 @@ def code_only(tree, text):
     for i, line in enumerate(text.splitlines(), 1):
         out.append("" if i in doc else line.split("#")[0])
     return "\n".join(out)
+
+
 DATE_ONLY_FMT = re.compile(r"%[HMSfXcpI]")
 
 
@@ -156,8 +265,17 @@ def has_dynamic(node):
     for x in nodes:
         if isinstance(x, ast.Attribute) and x.attr == "date" and isinstance(x.value, ast.Call):
             day_level.add(id(x.value))  # datetime.now().date()
-        if isinstance(x, ast.Call) and isinstance(x.func, ast.Attribute) and x.func.attr == "strftime" and isinstance(x.func.value, ast.Call):
-            fmt = x.args[0].value if x.args and isinstance(x.args[0], ast.Constant) and isinstance(x.args[0].value, str) else ""
+        if (
+            isinstance(x, ast.Call)
+            and isinstance(x.func, ast.Attribute)
+            and x.func.attr == "strftime"
+            and isinstance(x.func.value, ast.Call)
+        ):
+            fmt = (
+                x.args[0].value
+                if x.args and isinstance(x.args[0], ast.Constant) and isinstance(x.args[0].value, str)
+                else ""
+            )
             if fmt and not DATE_ONLY_FMT.search(fmt):
                 day_level.add(id(x.func.value))  # .strftime('%Y-%m-%d')
     for c in [n for n in nodes if isinstance(n, ast.Call)]:
@@ -175,7 +293,19 @@ def r_loop_001(tree, text, path):
                 continue
             # interactive/daemon loops are not runaway spend
             names = {dotted(c.func).rsplit(".", 1)[-1] for c in body_calls}
-            if names & {"input", "receive", "recv", "readline", "sleep", "get", "accept", "wait", "prompt", "receive_json", "receive_text"}:
+            if names & {
+                "input",
+                "receive",
+                "recv",
+                "readline",
+                "sleep",
+                "get",
+                "accept",
+                "wait",
+                "prompt",
+                "receive_json",
+                "receive_text",
+            }:
                 continue
             idents = set()
             for s in n.body:
@@ -188,7 +318,13 @@ def r_loop_001(tree, text, path):
                         idents.add(x.arg)
             if any(BOUND_RX.search(i) for i in idents):
                 continue
-            yield ("R-LOOP-001", n.lineno, n.lineno, "while True around an LLM call, no bound identifier in loop body", 0.55)
+            yield (
+                "R-LOOP-001",
+                n.lineno,
+                n.lineno,
+                "while True around an LLM call, no bound identifier in loop body",
+                0.55,
+            )
 
 
 def r_loop_002(tree, text, path):
@@ -197,7 +333,9 @@ def r_loop_002(tree, text, path):
     for n in ast.walk(tree):
         if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        body_has_llm = any(is_llm_call(c) for c in calls_in(n)) or re.search(r"(llm|completion|chat|embed|generate)", n.name, re.I)
+        body_has_llm = any(is_llm_call(c) for c in calls_in(n)) or re.search(
+            r"(llm|completion|chat|embed|generate)", n.name, re.I
+        )
         if not body_has_llm:
             continue
         for d in n.decorator_list:
@@ -235,14 +373,23 @@ def r_cache_003(tree, text, path):
         v = volatile_interpolation(node)
         if v:
             kind, nm, off = v
-            return emit(node, why, f"per-request {kind} `{nm}`" + (f" at offset {off}" if kind != "id" else ""), 0.55 if kind == "id" else 0.5)
+            return emit(
+                node,
+                why,
+                f"per-request {kind} `{nm}`" + (f" at offset {off}" if kind != "id" else ""),
+                0.55 if kind == "id" else 0.5,
+            )
         return None
 
     # prompt_cache_key / cache key given a fresh uuid or timestamp: a cache miss by construction
     for n in ast.walk(tree):
         if isinstance(n, ast.Dict):
             for k, v in zip(n.keys, n.values):
-                if isinstance(k, ast.Constant) and k.value in ("prompt_cache_key", "cache_key", "session_id") and has_dynamic(v):
+                if (
+                    isinstance(k, ast.Constant)
+                    and k.value in ("prompt_cache_key", "cache_key", "session_id")
+                    and has_dynamic(v)
+                ):
                     r = emit(v, f"`{k.value}`", has_dynamic(v))
                     if r:
                         yield r
@@ -272,7 +419,9 @@ def r_cache_003(tree, text, path):
                         yield r
         elif isinstance(n, ast.Call):
             last = dotted(n.func).rsplit(".", 1)[-1]
-            if last in ("SystemMessage", "SystemMessagePromptTemplate", "ChatMessage") and n.args or last == "SystemMessage":
+            if (
+                last in ("SystemMessage", "SystemMessagePromptTemplate", "ChatMessage") and n.args
+            ) or last == "SystemMessage":
                 r = check(n, "SystemMessage")
                 if r:
                     yield r
@@ -281,7 +430,9 @@ def r_cache_003(tree, text, path):
                     r = check(k.value, f"`{k.arg}=` argument")
                     if r:
                         yield r
-        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and re.search(r"(system_?prompt|build_system|get_system|system_message|_supplement|instructions)", n.name, re.I):
+        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and re.search(
+            r"(system_?prompt|build_system|get_system|system_message|_supplement|instructions)", n.name, re.I
+        ):
             for s in ast.walk(n):
                 if isinstance(s, ast.Return) and s.value is not None:
                     r = check(s.value, f"`{n.name}()` return value")
@@ -290,7 +441,9 @@ def r_cache_003(tree, text, path):
 
 
 def _indent_kw(c):
-    return any(k.arg == "indent" and not (isinstance(k.value, ast.Constant) and k.value.value in (None, 0)) for k in c.keywords)
+    return any(
+        k.arg == "indent" and not (isinstance(k.value, ast.Constant) and k.value.value in (None, 0)) for k in c.keywords
+    )
 
 
 def r_ctx_008(tree, text, path):
@@ -303,27 +456,65 @@ def r_ctx_008(tree, text, path):
                         d = dotted(c.func)
                         last = d.rsplit(".", 1)[-1]
                         if d.endswith("json.dumps") and _indent_kw(c):
-                            yield ("R-CTX-008", c.lineno, c.lineno, "json.dumps(indent=...) interpolated in an f-string", 0.5)
-                        elif SERIALIZER_RX.search(last) and _indent_kw(c):  # helper wrapping json.dumps, e.g. to_prompt_json(x, indent=2)
-                            yield ("R-CTX-008", c.lineno, c.lineno, f"{last}(indent=...) interpolated in an f-string", 0.45)
-        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and re.search(r"(to_)?prompt.*json|json.*prompt", n.name, re.I):
+                            yield (
+                                "R-CTX-008",
+                                c.lineno,
+                                c.lineno,
+                                "json.dumps(indent=...) interpolated in an f-string",
+                                0.5,
+                            )
+                        elif SERIALIZER_RX.search(last) and _indent_kw(
+                            c
+                        ):  # helper wrapping json.dumps, e.g. to_prompt_json(x, indent=2)
+                            yield (
+                                "R-CTX-008",
+                                c.lineno,
+                                c.lineno,
+                                f"{last}(indent=...) interpolated in an f-string",
+                                0.45,
+                            )
+        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and re.search(
+            r"(to_)?prompt.*json|json.*prompt", n.name, re.I
+        ):
             # a prompt-serialization helper whose default indent is > 0
             args = n.args
-            defaults = dict(zip([a.arg for a in args.args][-len(args.defaults):], args.defaults)) if args.defaults else {}
+            defaults = (
+                dict(zip([a.arg for a in args.args][-len(args.defaults) :], args.defaults)) if args.defaults else {}
+            )
             defaults.update({a.arg: d for a, d in zip(args.kwonlyargs, args.kw_defaults) if d is not None})
             dv = defaults.get("indent")
             if isinstance(dv, ast.Constant) and isinstance(dv.value, int) and dv.value > 0:
-                yield ("R-CTX-008", n.lineno, n.lineno, f"prompt JSON helper `{n.name}` defaults indent={dv.value}", 0.5)
+                yield (
+                    "R-CTX-008",
+                    n.lineno,
+                    n.lineno,
+                    f"prompt JSON helper `{n.name}` defaults indent={dv.value}",
+                    0.5,
+                )
         elif isinstance(n, ast.Call) and dotted(n.func).endswith(".format"):
             # message objects stringified into a prompt: .format(messages=<bare name>) with no serializer applied
             for k in n.keywords:
                 # only `messages=`: history/chat_history are almost always pre-rendered strings
-                if k.arg == "messages" and isinstance(k.value, ast.Name) and not re.search(r"(formatted|str|text|rendered|buffer|serialized|joined)", k.value.id, re.I):
-                    yield ("R-CTX-008", n.lineno, n.lineno, f".format({k.arg}={k.value.id}) interpolates message objects via str()", 0.35)
+                if (
+                    k.arg == "messages"
+                    and isinstance(k.value, ast.Name)
+                    and not re.search(r"(formatted|str|text|rendered|buffer|serialized|joined)", k.value.id, re.I)
+                ):
+                    yield (
+                        "R-CTX-008",
+                        n.lineno,
+                        n.lineno,
+                        f".format({k.arg}={k.value.id}) interpolates message objects via str()",
+                        0.35,
+                    )
 
 
 def r_call_004(tree, text, path):
-    loops = [n for n in ast.walk(tree) if isinstance(n, (ast.For, ast.AsyncFor, ast.ListComp, ast.GeneratorExp, ast.SetComp, ast.DictComp))]
+    loops = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.For, ast.AsyncFor, ast.ListComp, ast.GeneratorExp, ast.SetComp, ast.DictComp))
+    ]
     # per-item calls inside an `except NotImplementedError` fallback are a deliberate degradation, not a defect
     fallback = set()
     for h in ast.walk(tree):
@@ -336,7 +527,9 @@ def r_call_004(tree, text, path):
         if isinstance(lp, (ast.For, ast.AsyncFor)):
             tgts = {x.id for x in ast.walk(lp.target) if isinstance(x, ast.Name)}
             scope = lp.body
-            if "batch" in ast.dump(lp.iter).lower() or any(re.search(r"(batch|chunk|group|page|shard)", t, re.I) for t in tgts):
+            if "batch" in ast.dump(lp.iter).lower() or any(
+                re.search(r"(batch|chunk|group|page|shard)", t, re.I) for t in tgts
+            ):
                 continue
         else:
             tgts = {x.id for g in lp.generators for x in ast.walk(g.target) if isinstance(x, ast.Name)}
@@ -346,20 +539,46 @@ def r_call_004(tree, text, path):
                 d = dotted(c.func)
                 last = d.rsplit(".", 1)[-1]
                 hit = False
-                uses_tgt = lambda x: isinstance(x, ast.Name) and x.id in tgts or (isinstance(x, (ast.Attribute, ast.Subscript, ast.JoinedStr, ast.Call)) and any(isinstance(y, ast.Name) and y.id in tgts for y in ast.walk(x)))
+                uses_tgt = lambda x: (
+                    (isinstance(x, ast.Name) and x.id in tgts)
+                    or (
+                        isinstance(x, (ast.Attribute, ast.Subscript, ast.JoinedStr, ast.Call))
+                        and any(isinstance(y, ast.Name) and y.id in tgts for y in ast.walk(x))
+                    )
+                )
                 if last in EMBED_SINGLE or EMBED_SINGLE_RX.match(last) or last in EMBED_CALLABLE_NAMES:
                     args = list(c.args) + [k.value for k in c.keywords]
                     recv = c.func.value if isinstance(c.func, ast.Attribute) else None
                     hit = any(uses_tgt(x) for x in args) or (recv is not None and uses_tgt(recv))
                 elif d.endswith("embeddings.create"):
                     for k in c.keywords:
-                        if k.arg == "input" and isinstance(k.value, (ast.Name, ast.Attribute, ast.Subscript, ast.JoinedStr)) and any(isinstance(y, ast.Name) and y.id in tgts for y in ast.walk(k.value)) and not isinstance(k.value, ast.List):
+                        if (
+                            k.arg == "input"
+                            and isinstance(k.value, (ast.Name, ast.Attribute, ast.Subscript, ast.JoinedStr))
+                            and any(isinstance(y, ast.Name) and y.id in tgts for y in ast.walk(k.value))
+                            and not isinstance(k.value, ast.List)
+                        ):
                             hit = True
                 if hit and c.lineno not in seen:
                     seen.add(c.lineno)
-                    enclosing = next((f.name for f in ast.walk(tree) if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef)) and f.lineno <= c.lineno <= (f.end_lineno or f.lineno) and BATCH_FN_RX.search(f.name)), None)
+                    enclosing = next(
+                        (
+                            f.name
+                            for f in ast.walk(tree)
+                            if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and f.lineno <= c.lineno <= (f.end_lineno or f.lineno)
+                            and BATCH_FN_RX.search(f.name)
+                        ),
+                        None,
+                    )
                     if enclosing:
-                        yield ("R-CALL-004", c.lineno, c.lineno, f"{last}() per item inside batch method {enclosing}()", 0.65)
+                        yield (
+                            "R-CALL-004",
+                            c.lineno,
+                            c.lineno,
+                            f"{last}() per item inside batch method {enclosing}()",
+                            0.65,
+                        )
                     else:
                         yield ("R-CALL-004", c.lineno, c.lineno, f"{last}() per loop item", 0.5)
 
@@ -369,19 +588,35 @@ def r_out_001(tree, text, path):
         if isinstance(n, ast.Call):
             d = dotted(n.func)
             last = d.rsplit(".", 1)[-1]
-            if d.endswith("chat.completions.create") or d.endswith("litellm.completion") or d.endswith("litellm.acompletion") or last == "acompletion":
+            if (
+                d.endswith("chat.completions.create")
+                or d.endswith("litellm.completion")
+                or d.endswith("litellm.acompletion")
+                or last == "acompletion"
+            ):
                 kws = {k.arg for k in n.keywords}
                 if None in kws:  # **kwargs may carry the cap
                     continue
-                if not kws & {"max_tokens", "max_completion_tokens", "max_output_tokens", "max_new_tokens"} and kws & {"messages", "model"}:
+                if not kws & {"max_tokens", "max_completion_tokens", "max_output_tokens", "max_new_tokens"} and kws & {
+                    "messages",
+                    "model",
+                }:
                     yield ("R-OUT-001", n.lineno, n.lineno, f"{d}() without max_tokens", 0.35)
             # cap explicitly disabled: f(..., max_tokens=None)
             for k in n.keywords:
-                if k.arg in ("max_tokens", "max_completion_tokens", "max_output_tokens") and isinstance(k.value, ast.Constant) and k.value.value is None:
+                if (
+                    k.arg in ("max_tokens", "max_completion_tokens", "max_output_tokens")
+                    and isinstance(k.value, ast.Constant)
+                    and k.value.value is None
+                ):
                     yield ("R-OUT-001", k.value.lineno, k.value.lineno, f"{k.arg}=None disables the output cap", 0.45)
         elif isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant) and n.value.value is None:
             for t in n.targets:
-                nm = t.id if isinstance(t, ast.Name) else (t.slice.value if isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Constant) else None)
+                nm = (
+                    t.id
+                    if isinstance(t, ast.Name)
+                    else (t.slice.value if isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Constant) else None)
+                )
                 if nm in ("max_tokens", "max_completion_tokens", "max_output_tokens"):
                     yield ("R-OUT-001", n.lineno, n.lineno, f"{nm} set to None disables the output cap", 0.45)
 
@@ -390,13 +625,20 @@ def r_model_001(tree, text, path):
     for n in ast.walk(tree):
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and CHEAP_FN_RX.search(n.name):
             for c in ast.walk(n):
-                if isinstance(c, ast.Constant) and isinstance(c.value, str) and FRONTIER_RX.match(c.value) and not any(w in c.value for w in CHEAP_WORDS):
+                if (
+                    isinstance(c, ast.Constant)
+                    and isinstance(c.value, str)
+                    and FRONTIER_RX.match(c.value)
+                    and not any(w in c.value for w in CHEAP_WORDS)
+                ):
                     if any(is_llm_call(x) for x in calls_in(n)):
                         yield ("R-MODEL-001", c.lineno, c.lineno, f"`{c.value}` hard-coded in {n.name}()", 0.4)
                         break
 
 
-CACHE_READ_ACCESS_RX = re.compile(r"(\.|\[[\"']|get\([\"'])(cached_tokens|cache_read_input_tokens|cache_read_tokens|cached_input_tokens|cacheRead\w*|cache_read)\b")
+CACHE_READ_ACCESS_RX = re.compile(
+    r"(\.|\[[\"']|get\([\"'])(cached_tokens|cache_read_input_tokens|cache_read_tokens|cached_input_tokens|cacheRead\w*|cache_read)\b"
+)
 
 
 def r_acct_001(tree, text, path):
@@ -405,10 +647,22 @@ def r_acct_001(tree, text, path):
     code = code_only(tree, text)
     has_cache = bool(CACHE_FIELD_RX.search(code))
     # (b) half-coverage: *reads* cache-read tokens but never any cache-write field, in code that knows Anthropic/LiteLLM/Bedrock
-    if has_cache and CACHE_READ_ACCESS_RX.search(code) and not CACHE_WRITE_RX.search(code) and ANTHROPIC_LIKE_RX.search(code) and re.search(r"(usage|metrics)", code, re.I):
+    if (
+        has_cache
+        and CACHE_READ_ACCESS_RX.search(code)
+        and not CACHE_WRITE_RX.search(code)
+        and ANTHROPIC_LIKE_RX.search(code)
+        and re.search(r"(usage|metrics)", code, re.I)
+    ):
         for i, line in enumerate(code.splitlines(), 1):
             if CACHE_READ_ACCESS_RX.search(strip_quotes(line)):
-                yield ("R-ACCT-001", i, i, "reads cache-read tokens but no cache-write/creation field anywhere in the file", 0.4)
+                yield (
+                    "R-ACCT-001",
+                    i,
+                    i,
+                    "reads cache-read tokens but no cache-write/creation field anywhere in the file",
+                    0.4,
+                )
                 break
     # (a) usage normalizer: dict literal mapping input+output token keys read off a usage object, file has no cache field at all
     if not has_cache:
@@ -418,7 +672,13 @@ def r_acct_001(tree, text, path):
                 if any(USAGE_IN_KEY.match(k) for k in keys) and any(USAGE_OUT_KEY.match(k) for k in keys):
                     src = ast.get_source_segment(text, n) or ""
                     if re.search(r"usage\s*[.\[]|getattr\(\s*[\w.]*usage", src):
-                        yield ("R-ACCT-001", n.lineno, n.end_lineno or n.lineno, "usage normalizer maps input/output tokens from `usage` but the file never reads any cache token field", 0.45)
+                        yield (
+                            "R-ACCT-001",
+                            n.lineno,
+                            n.end_lineno or n.lineno,
+                            "usage normalizer maps input/output tokens from `usage` but the file never reads any cache token field",
+                            0.45,
+                        )
                         return
     # (c) file-level: prices token counts but never touches cache fields
     if has_cache:
@@ -431,9 +691,15 @@ def r_acct_001(tree, text, path):
         if i in doc:
             continue
         if re.search(r"\b(prompt_tokens|input_tokens)\b", code) and re.search(r"[*/]", code):
-            ctx = "\n".join(text.splitlines()[max(0, i - 4): i + 4])
+            ctx = "\n".join(text.splitlines()[max(0, i - 4) : i + 4])
             if re.search(r"(cost|price|usd|per_)", ctx, re.I):
-                yield ("R-ACCT-001", i, i, "token count multiplied by a price; file never reads cache token fields", 0.5)
+                yield (
+                    "R-ACCT-001",
+                    i,
+                    i,
+                    "token count multiplied by a price; file never reads cache token fields",
+                    0.5,
+                )
                 return
 
 

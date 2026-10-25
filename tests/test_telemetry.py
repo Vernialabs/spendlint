@@ -1,8 +1,9 @@
-"""Run: python -m unittest spendlint.test_telemetry
+"""Telemetry promises (docs/telemetry.md). Run with `pytest tests/test_telemetry.py`.
 
 Proves the telemetry promises in docs/telemetry.md: no paths, names or code in an event; every opt-out works;
-CI is off by default; a broken or slow endpoint never changes the exit code; nothing is sent without a URL.
+CI is off by default; a broken or slow endpoint never changes the exit code; nothing is sent with SPENDLINT_TELEMETRY_URL=none.
 """
+
 import io
 import json
 import os
@@ -17,17 +18,26 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 
-from . import telemetry
-from .action import main as action_main
-from .cli import main
+from spendlint import telemetry
+from spendlint.action import main as action_main
+from spendlint.cli import main
 
-SECRETS = ["acme-secret-repo", "very_secret_module", "feature/secret-branch", "TOPSECRETTOKEN", "Leaky commit message",
-           "hunter2-license", "secret_dir"]
-SRC = ("import json\n"
-       "TOPSECRETTOKEN = 'sk-do-not-leak'\n"
-       "p = f'Data: {json.dumps(d, indent=2)}'\n"
-       "from datetime import datetime\n"
-       "SYSTEM_PROMPT = f'You are helpful. Now: {datetime.now()}'\n")
+SECRETS = [
+    "acme-secret-repo",
+    "very_secret_module",
+    "feature/secret-branch",
+    "TOPSECRETTOKEN",
+    "Leaky commit message",
+    "hunter2-license",
+    "secret_dir",
+]
+SRC = (
+    "import json\n"
+    "TOPSECRETTOKEN = 'sk-do-not-leak'\n"
+    "p = f'Data: {json.dumps(d, indent=2)}'\n"
+    "from datetime import datetime\n"
+    "SYSTEM_PROMPT = f'You are helpful. Now: {datetime.now()}'\n"
+)
 CI_VARS = ("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TF_BUILD", "JENKINS_URL", "BUILD_ID", "DO_NOT_TRACK")
 
 
@@ -39,10 +49,15 @@ class Base(unittest.TestCase):
         (self.repo / "very_secret_module.py").write_text(SRC, encoding="utf-8")
         self.data = self.tmp / "data"
         self.log = self.tmp / "data" / "events.jsonl"
-        env = {k: v for k, v in os.environ.items()
-               if not k.startswith(("SPENDLINT_", "GITHUB_", "INPUT_", "RUNNER_")) and k not in CI_VARS}
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith(("SPENDLINT_", "GITHUB_", "INPUT_", "RUNNER_")) and k not in CI_VARS
+        }
         # local only by default, so no test can reach the real collector
-        env.update(SPENDLINT_DATA_DIR=str(self.data), SPENDLINT_TELEMETRY_LOG=str(self.log), SPENDLINT_TELEMETRY_URL="none")
+        env.update(
+            SPENDLINT_DATA_DIR=str(self.data), SPENDLINT_TELEMETRY_LOG=str(self.log), SPENDLINT_TELEMETRY_URL="none"
+        )
         self.patch = mock.patch.dict(os.environ, env, clear=True)
         self.patch.start()
 
@@ -59,11 +74,20 @@ class Base(unittest.TestCase):
     def run_action(self, **extra_env):
         gh = self.tmp / "gh"
         gh.mkdir(exist_ok=True)
-        env = dict(GITHUB_ACTIONS="true", CI="true", GITHUB_WORKSPACE=str(self.repo.parent), INPUT_PATH="secret_dir",
-                   GITHUB_REPOSITORY="acme/acme-secret-repo", GITHUB_HEAD_REF="feature/secret-branch",
-                   GITHUB_REF="refs/heads/feature/secret-branch", GITHUB_EVENT_NAME="push",
-                   GITHUB_STEP_SUMMARY=str(gh / "summary.md"), GITHUB_OUTPUT=str(gh / "output"), RUNNER_TEMP=str(gh),
-                   COMMIT_MESSAGE="Leaky commit message")
+        env = {
+            "GITHUB_ACTIONS": "true",
+            "CI": "true",
+            "GITHUB_WORKSPACE": str(self.repo.parent),
+            "INPUT_PATH": "secret_dir",
+            "GITHUB_REPOSITORY": "acme/acme-secret-repo",
+            "GITHUB_HEAD_REF": "feature/secret-branch",
+            "GITHUB_REF": "refs/heads/feature/secret-branch",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_STEP_SUMMARY": str(gh / "summary.md"),
+            "GITHUB_OUTPUT": str(gh / "output"),
+            "RUNNER_TEMP": str(gh),
+            "COMMIT_MESSAGE": "Leaky commit message",
+        }
         env.update(extra_env)
         out = io.StringIO()
         with mock.patch.dict(os.environ, env), redirect_stdout(out), redirect_stderr(io.StringIO()):
@@ -73,17 +97,18 @@ class Base(unittest.TestCase):
     def events(self):
         if not self.log.exists():
             return []
-        return [json.loads(l) for l in self.log.read_text(encoding="utf-8").splitlines() if l.strip()]
+        return [json.loads(ln) for ln in self.log.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
     def assert_clean(self, text):
-        for s in SECRETS + [str(self.tmp), self.tmp.name, "sk-do-not-leak", "json.dumps", ".py"]:
+        for s in [*SECRETS, str(self.tmp), self.tmp.name, "sk-do-not-leak", "json.dumps", ".py"]:
             self.assertNotIn(s, text, f"telemetry leaked {s!r}")
 
 
 class TestEventContent(Base):
     def test_cli_event_has_no_paths_names_or_code(self):
-        code, _, _ = self.run_cli(str(self.repo), "--fail-on", "info", SPENDLINT_TELEMETRY="on",
-                                  SPENDLINT_LICENSE_KEY="hunter2-license")
+        code, _, _ = self.run_cli(
+            str(self.repo), "--fail-on", "info", SPENDLINT_TELEMETRY="on", SPENDLINT_LICENSE_KEY="hunter2-license"
+        )
         self.assertEqual(code, 1)
         raw = self.log.read_text(encoding="utf-8")
         self.assert_clean(raw)
@@ -102,12 +127,14 @@ class TestEventContent(Base):
         self.assertEqual(code, 1)
         self.assertIn("secret_dir/very_secret_module.py", out)  # the annotation itself does name the file...
         raw = self.log.read_text(encoding="utf-8")
-        self.assert_clean(raw)                                  # ...the telemetry event does not
+        self.assert_clean(raw)  # ...the telemetry event does not
         (ev,) = self.events()
         self.assertEqual((ev["command"], ev["ci_provider"], ev["exit_code"]), ("action", "github-actions", 1))
 
     def test_unknown_rule_ids_and_extra_fields_are_rejected(self):
-        ev = telemetry.build_event("scan", 1.0, {"py": 1, "ts": 0}, [{"rule_id": "/home/me/secret.py"}], 0, str(uuid.uuid4()))
+        ev = telemetry.build_event(
+            "scan", 1.0, {"py": 1, "ts": 0}, [{"rule_id": "/home/me/secret.py"}], 0, str(uuid.uuid4())
+        )
         self.assertEqual(ev["findings_by_rule"], {})
         ev["repo"] = "acme/x"
         with self.assertRaises(ValueError):
@@ -140,7 +167,7 @@ class TestOptOuts(Base):
     def test_ci_is_off_by_default(self):
         for var in ({"GITHUB_ACTIONS": "true"}, {"GITLAB_CI": "true"}, {"CIRCLECI": "true"}, {"CI": "1"}):
             self.run_cli(str(self.repo), **var)
-        code, _ = self.run_action()                 # telemetry input defaults to auto
+        code, _ = self.run_action()  # telemetry input defaults to auto
         self.assertEqual(code, 0)
         self.assertEqual(self.events(), [])
 
@@ -184,6 +211,7 @@ class TestOptOuts(Base):
 
 class Server:
     """Local HTTP endpoint on 127.0.0.1 with a chosen behaviour: ok, error or hang."""
+
     def __init__(self, behaviour):
         received = self.received = []
 
@@ -256,8 +284,9 @@ class TestSending(Base):
         closed.close()  # nothing listens on this port any more: connection refused
         try:
             for url in (srv.url, closed.url, "http://[::1", "ftp://example.invalid/x", "not a url"):
-                code, _, err = self.run_cli(str(self.repo), "--fail-on", "warning",
-                                            SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=url)
+                code, _, err = self.run_cli(
+                    str(self.repo), "--fail-on", "warning", SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=url
+                )
                 self.assertEqual(code, expected, url)
                 self.assertNotIn("Traceback", err)
         finally:
@@ -268,8 +297,9 @@ class TestSending(Base):
         srv = Server("hang")
         try:
             t = time.monotonic()
-            code, _, _ = self.run_cli(str(self.repo), "--fail-on", "warning",
-                                      SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=srv.url)
+            code, _, _ = self.run_cli(
+                str(self.repo), "--fail-on", "warning", SPENDLINT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL=srv.url
+            )
             elapsed = time.monotonic() - t
         finally:
             srv.close()
@@ -278,8 +308,9 @@ class TestSending(Base):
 
     def test_action_exit_code_unchanged_by_failing_endpoint(self):
         expected, _ = self.run_action(INPUT_FAIL_ON="warning")
-        code, _ = self.run_action(INPUT_FAIL_ON="warning", INPUT_TELEMETRY="on",
-                                  SPENDLINT_TELEMETRY_URL="http://127.0.0.1:9/unreachable")
+        code, _ = self.run_action(
+            INPUT_FAIL_ON="warning", INPUT_TELEMETRY="on", SPENDLINT_TELEMETRY_URL="http://127.0.0.1:9/unreachable"
+        )
         self.assertEqual((expected, code), (1, 1))
 
     def test_internal_failure_is_swallowed(self):
