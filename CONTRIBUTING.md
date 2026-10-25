@@ -25,3 +25,13 @@ on pull-request diffs: a noisy rule is worse than a missing one.
 
 `scripts/action_local/replay_action.sh` replays the GitHub Action's steps locally against a clone with a pull
 request branch checked out.
+
+## AI review
+
+Every pull request gets an advisory AI review, posted as one summary comment plus inline comments; it never
+approves or blocks. `.github/workflows/pr-review.yml` calls the provider-neutral `.github/workflows/ai-review.yml`;
+the prompt, output schema and posting script live in `.github/ai-review/`. Switch provider on the `provider:` line
+of `pr-review.yml` (`claude` or `codex`) or with the repository variable `AI_REVIEW_PROVIDER`. Label a pull request
+`ai-review-skip` to skip it, or `ai-rereview` to run it again. Without the provider's secret the review is skipped
+with a notice. Test the posting script with `python -m unittest discover -s tests/ai_review`, or preview a review
+with `python .github/ai-review/post_review.py --review review.json --diff pr.diff --dry-run`.
